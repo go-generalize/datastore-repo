@@ -34,3 +34,7 @@ type Task struct {
 `int64`をkeyとした場合、Put時にkeyを `0` としている場合は自動でkeyの割り当てが行われ、`0` 以外を指定するとその値をkeyとする要素が生成される。`string`及び `*datastore.Key` の場合は自動生成されないため明示的に設定する必要がある。
 
 この状態で`go generate` を実行すると`_gen.go`で終わるファイルにクライアントが生成される。
+
+### License
+- Under the MIT License
+- Copyright (C) 2020 go-generalize
