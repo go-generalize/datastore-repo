@@ -10,14 +10,6 @@ linters-settings:
     min-confidence: 0
   govet:
     check-shadowing: true
-    settings:
-      printf:
-        funcs:
-          - github.com/ORG_NAME/REPO_NAME/server/infra/log.Debugf
-          - github.com/ORG_NAME/REPO_NAME/server/infra/log.Infof
-          - github.com/ORG_NAME/REPO_NAME/server/infra/log.Warningf
-          - github.com/ORG_NAME/REPO_NAME/server/infra/log.Errorf
-          - github.com/ORG_NAME/REPO_NAME/server/infra/log.Criticalf
 
   lll:
     line-length: 120
