@@ -56,7 +56,7 @@ func compareTask(t *testing.T, expected, actual *task.Task) {
 func TestDatastore(t *testing.T) {
 	client := initDatastoreClient(t)
 
-	taskRepo := task.NewRepository(client)
+	taskRepo := task.NewTaskRepository(client)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -66,7 +66,7 @@ func TestDatastore(t *testing.T) {
 
 	incmplKey := datastore.IncompleteKey("Task", nil)
 
-	key, err := taskRepo.Put(ctx, &task.Task{
+	key, err := taskRepo.Insert(ctx, &task.Task{
 		ID:      incmplKey,
 		Desc:    desc,
 		Created: now,
