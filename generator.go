@@ -43,6 +43,7 @@ func (g *generator) setRepositoryStructName() {
 	g.RepositoryStructName = prefix + name[1:]
 }
 
+// nolint:lll
 const tmpl = `// THIS FILE IS A GENERATED CODE. DO NOT EDIT
 package {{.PackageName}}
 
