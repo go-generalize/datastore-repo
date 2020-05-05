@@ -57,8 +57,8 @@ import (
 type {{.RepositoryInterfaceName}} interface {
 	Get(ctx context.Context, {{.KeyValueName}} {{.KeyFieldType}}) (*{{.StructName}}, error)
 	GetMulti(ctx context.Context, {{.KeyValueName}}s []{{.KeyFieldType}}) ([]*{{.StructName}}, error)
-	Put(ctx context.Context, subject *{{.StructName}}) ({{.KeyFieldType}}, error)
-	PutMulti(ctx context.Context, subjects []*{{.StructName}}) ([]{{.KeyFieldType}}, error)
+	Insert(ctx context.Context, subject *{{.StructName}}) ({{.KeyFieldType}}, error)
+	InsertMulti(ctx context.Context, subjects []*{{.StructName}}) ([]{{.KeyFieldType}}, error)
 	Update(ctx context.Context, subject *{{.StructName}}) error
 	UpdateMulti(ctx context.Context, subjects []*{{.StructName}}) error
 	Delete(ctx context.Context, {{.KeyValueName}} {{.KeyFieldType}}) error
@@ -134,7 +134,7 @@ func (repo *{{.RepositoryStructName}}) GetMulti(ctx context.Context, {{.KeyValue
 	return vessels, err
 }
 
-func (repo *{{.RepositoryStructName}}) Put(ctx context.Context, subject *{{.StructName}}) ({{.KeyFieldType}}, error) {
+func (repo *{{.RepositoryStructName}}) Insert(ctx context.Context, subject *{{.StructName}}) ({{.KeyFieldType}}, error) {
 {{- if eq .KeyFieldType "int64"}}
 	key := datastore.IDKey(repo.kind, subject.{{.KeyFieldName}}, nil)
 	zero := int64(0)
@@ -161,7 +161,7 @@ func (repo *{{.RepositoryStructName}}) Put(ctx context.Context, subject *{{.Stru
 {{end -}}
 }
 
-func (repo *{{.RepositoryStructName}}) PutMulti(ctx context.Context, subjects []*{{.StructName}}) ([]{{.KeyFieldType}}, error) {
+func (repo *{{.RepositoryStructName}}) InsertMulti(ctx context.Context, subjects []*{{.StructName}}) ([]{{.KeyFieldType}}, error) {
 	keys := make([]*datastore.Key, 0, len(subjects))
 {{- if eq .KeyFieldType "int64"}}
 	for _, subject := range subjects {
