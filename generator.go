@@ -28,6 +28,16 @@ func (g *generator) generate(writer io.Writer) {
 	}
 }
 
+func (g *generator) setRepositoryStructName() {
+	name := g.RepositoryInterfaceName
+	prefix := name[:1]
+	r := []rune(prefix)[0]
+	if 65 <= r && r <= 90 {
+		prefix = string(r + 32)
+	}
+	g.RepositoryStructName = prefix + name[1:]
+}
+
 const tmpl = `// THIS FILE IS A GENERATED CODE. DO NOT EDIT
 package {{.PackageName}}
 
