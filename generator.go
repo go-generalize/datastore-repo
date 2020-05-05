@@ -12,6 +12,9 @@ type generator struct {
 	FileName          string
 	StructName        string
 
+	RepositoryStructName    string
+	RepositoryInterfaceName string
+
 	KeyFieldName string
 	KeyFieldType string
 
@@ -19,6 +22,8 @@ type generator struct {
 }
 
 func (g *generator) generate(writer io.Writer) {
+	g.RepositoryInterfaceName = g.StructName + "Repository"
+	g.setRepositoryStructName()
 	t := template.Must(template.New("tmpl").Parse(tmpl))
 
 	err := t.Execute(writer, g)
@@ -47,77 +52,40 @@ import (
 	"cloud.google.com/go/datastore"
 )
 
-const kind = "{{.StructName}}"
+//go:generate mockgen -source {{.GeneratedFileName}}.go -destination mock_{{.GeneratedFileName}}/mock_{{.GeneratedFileName}}.go
 
-` + `//go:generate mockgen -source {{.GeneratedFileName}}.go -destination mock_{{.GeneratedFileName}}/mock_{{.GeneratedFileName}}.go
-type Repository interface {
-	Update(ctx context.Context, subject *{{.StructName}}) error
-	Put(ctx context.Context, subject *{{.StructName}}) ({{.KeyFieldType}}, error)
+type {{.RepositoryInterfaceName}} interface {
 	Get(ctx context.Context, {{.KeyValueName}} {{.KeyFieldType}}) (*{{.StructName}}, error)
 	GetMulti(ctx context.Context, {{.KeyValueName}}s []{{.KeyFieldType}}) ([]*{{.StructName}}, error)
+	Put(ctx context.Context, subject *{{.StructName}}) ({{.KeyFieldType}}, error)
+	PutMulti(ctx context.Context, subjects []*{{.StructName}}) ([]{{.KeyFieldType}}, error)
+	Update(ctx context.Context, subject *{{.StructName}}) error
+	UpdateMulti(ctx context.Context, subjects []*{{.StructName}}) error
 	Delete(ctx context.Context, {{.KeyValueName}} {{.KeyFieldType}}) error
+	DeleteMulti(ctx context.Context, {{.KeyValueName}}s []{{.KeyFieldType}}) error
 }
 
-type repository struct {
+type {{.RepositoryStructName}} struct {
+	kind            string
 	datastoreClient *datastore.Client
 }
 
-func NewRepository(datastoreClient *datastore.Client) Repository {
-	return &repository{datastoreClient: datastoreClient}
+func New{{.RepositoryInterfaceName}}(datastoreClient *datastore.Client) {{.RepositoryInterfaceName}} {
+	return &{{.RepositoryStructName}}{
+		kind:            "{{.StructName}}",
+		datastoreClient: datastoreClient,
+	}
 }
 
-func (repo *repository) Update(ctx context.Context, subject *{{.StructName}}) error {
-{{if eq .KeyFieldType "int64"}}
-	key := datastore.IDKey(kind, subject.{{.KeyFieldName}}, nil)
+func (repo *{{.RepositoryStructName}}) Get(ctx context.Context, {{.KeyValueName}} {{.KeyFieldType}}) (*{{.StructName}}, error) {
+{{- if eq .KeyFieldType "int64"}}
+	key := datastore.IDKey(repo.kind, {{.KeyValueName}}, nil)
 {{else if eq .KeyFieldType "string"}}
-	key := datastore.NameKey(kind, subject.{{.KeyFieldName}}, nil)
-{{else}}
-	key := subject.{{.KeyFieldName}}
-{{end}}
-	_, err := repo.datastoreClient.Put(ctx, key, subject)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (repo *repository) Put(ctx context.Context, subject *{{.StructName}}) ({{.KeyFieldType}}, error) {
-{{if eq .KeyFieldType "int64"}}
-	key := datastore.IDKey(kind, subject.{{.KeyFieldName}}, nil)
-	zero := int64(0)
-{{else if eq .KeyFieldType "string"}}
-	key := datastore.NameKey(kind, subject.{{.KeyFieldName}}, nil)
-	zero := ""
-{{else}}
-	key := subject.{{.KeyFieldName}}
-	if key == nil {
-		key = datastore.IncompleteKey(kind, nil)
-	}
-	var zero {{.KeyFieldType}}
-{{end}}
-	key, err := repo.datastoreClient.Put(ctx, key, subject)
-	if err != nil {
-		return zero, err
-	}
-{{if eq .KeyFieldType "int64"}}
-	return key.ID, nil
-{{else if eq .KeyFieldType "string"}}
-	return key.Name, nil
-{{else}}
-	return key, nil
-{{end}}
-}
-
-func (repo *repository) Get(ctx context.Context, {{.KeyValueName}} {{.KeyFieldType}}) (*{{.StructName}}, error) {
-{{if eq .KeyFieldType "int64"}}
-	key := datastore.IDKey(kind, {{.KeyValueName}}, nil)
-{{else if eq .KeyFieldType "string"}}
-	key := datastore.NameKey(kind, {{.KeyValueName}}, nil)
+	key := datastore.NameKey(repo.kind, {{.KeyValueName}}, nil)
 {{else}}
 	key := {{.KeyValueName}}
 {{end}}
-	subject := &{{.StructName}}{}
+	subject := new({{.StructName}})
 	err := repo.datastoreClient.Get(ctx, key, subject)
 	if err != nil {
 		return nil, err
@@ -132,52 +100,169 @@ func (repo *repository) Get(ctx context.Context, {{.KeyValueName}} {{.KeyFieldTy
 	return subject, nil
 }
 
-func (repo *repository) GetMulti(
-	ctx context.Context,
-	{{.KeyValueName}}s []{{.KeyFieldType}},
-) ([]*{{.StructName}}, error) {
-{{if eq .KeyFieldType "int64"}}
+func (repo *{{.RepositoryStructName}}) GetMulti(ctx context.Context, {{.KeyValueName}}s []{{.KeyFieldType}}) ([]*{{.StructName}}, error) {
+{{- if eq .KeyFieldType "int64"}}
 	keys := make([]*datastore.Key, 0, len({{.KeyValueName}}s))
 
 	for i := range {{.KeyValueName}}s {
-		keys = append(keys, datastore.IDKey(kind, {{.KeyValueName}}s[i], nil))
+		keys = append(keys, datastore.IDKey(repo.kind, {{.KeyValueName}}s[i], nil))
 	}
 {{else if eq .KeyFieldType "string"}}
 	keys := make([]*datastore.Key, 0, len({{.KeyValueName}}s))
 
 	for i := range {{.KeyValueName}}s {
-		keys = append(keys, datastore.NameKey(kind, {{.KeyValueName}}s[i], nil))
+		keys = append(keys, datastore.NameKey(repo.kind, {{.KeyValueName}}s[i], nil))
 	}
 {{else}}
 	keys := {{.KeyValueName}}s
 {{end}}
 	vessels := make([]*{{.StructName}}, len({{.KeyValueName}}s))
-
 	err := repo.datastoreClient.GetMulti(ctx, keys, vessels)
 
 	for i := range vessels {
 		if vessels[i] != nil {
-{{if eq .KeyFieldType "int64"}}
+{{- if eq .KeyFieldType "int64"}}
 			vessels[i].{{.KeyFieldName}} = keys[i].ID
-{{else if eq .KeyFieldType "string"}}
+{{- else if eq .KeyFieldType "string"}}
 			vessels[i].{{.KeyFieldName}} = keys[i].Name
-{{else}}
+{{- else}}
 			vessels[i].{{.KeyFieldName}} = keys[i]
-{{end}}
+{{- end}}
 		}
 	}
 
 	return vessels, err
 }
 
-func (repo *repository) Delete(ctx context.Context, {{.KeyValueName}} {{.KeyFieldType}}) error {
-{{if eq .KeyFieldType "int64"}}
-	key := datastore.IDKey(kind, {{.KeyValueName}}, nil)
+func (repo *{{.RepositoryStructName}}) Put(ctx context.Context, subject *{{.StructName}}) ({{.KeyFieldType}}, error) {
+{{- if eq .KeyFieldType "int64"}}
+	key := datastore.IDKey(repo.kind, subject.{{.KeyFieldName}}, nil)
+	zero := int64(0)
 {{else if eq .KeyFieldType "string"}}
-	key := datastore.NameKey(kind, {{.KeyValueName}}, nil)
+	key := datastore.NameKey(repo.kind, subject.{{.KeyFieldName}}, nil)
+	zero := ""
+{{else}}
+	key := subject.{{.KeyFieldName}}
+	if key == nil {
+		key = datastore.IncompleteKey(repo.kind, nil)
+	}
+	var zero {{.KeyFieldType}}
+{{end}}
+	key, err := repo.datastoreClient.Put(ctx, key, subject)
+	if err != nil {
+		return zero, err
+	}
+{{if eq .KeyFieldType "int64"}}
+	return key.ID, nil
+{{else if eq .KeyFieldType "string"}}
+	return key.Name, nil
+{{else}}
+	return key, nil
+{{end -}}
+}
+
+func (repo *{{.RepositoryStructName}}) PutMulti(ctx context.Context, subjects []*{{.StructName}}) ([]{{.KeyFieldType}}, error) {
+	keys := make([]*datastore.Key, 0, len(subjects))
+{{- if eq .KeyFieldType "int64"}}
+	for _, subject := range subjects {
+		keys = append(keys, datastore.IDKey(repo.kind, subject.ID, nil))
+	}
+{{else if eq .KeyFieldType "string"}}
+	for _, subject := range subjects {
+		keys = append(keys, datastore.NameKey(repo.kind, subject.ID, nil))
+	}
+{{else}}
+	for _, subject := range subjects {
+		keys = append(keys, subject.ID)
+	}
+{{end}}
+	keys, err := repo.datastoreClient.PutMulti(ctx, keys, subjects)
+	if err != nil {
+		return nil, err
+	}
+
+	vessels := make([]{{.KeyFieldType}}, 0, len(keys))
+	for i := range keys {
+		if keys[i] != nil {
+{{- if eq .KeyFieldType "int64"}}
+			vessels[i] = keys[i].ID
+{{- else if eq .KeyFieldType "string"}}
+			vessels[i] = keys[i].Name
+{{- else}}
+			vessels[i] = keys[i]
+{{- end}}
+		}
+	}
+
+	return vessels, err
+}
+
+func (repo *{{.RepositoryStructName}}) Update(ctx context.Context, subject *{{.StructName}}) error {
+{{- if eq .KeyFieldType "int64"}}
+	key := datastore.IDKey(repo.kind, subject.{{.KeyFieldName}}, nil)
+{{else if eq .KeyFieldType "string"}}
+	key := datastore.NameKey(repo.kind, subject.{{.KeyFieldName}}, nil)
+{{else}}
+	key := subject.{{.KeyFieldName}}
+{{end}}
+	_, err := repo.datastoreClient.Put(ctx, key, subject)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repo *{{.RepositoryStructName}}) UpdateMulti(ctx context.Context, subjects []*{{.StructName}}) error {
+	keys := make([]*datastore.Key, 0, len(subjects))
+{{- if eq .KeyFieldType "int64"}}
+	for _, subject := range subjects {
+		keys = append(keys, datastore.IDKey(repo.kind, subject.ID, nil))
+	}
+{{else if eq .KeyFieldType "string"}}
+	for _, subject := range subjects {
+		keys = append(keys, datastore.NameKey(repo.kind, subject.ID, nil))
+	}
+{{else}}
+	for _, subject := range subjects {
+		keys = append(keys, subject.ID)
+	}
+{{end}}
+	_, err := repo.datastoreClient.PutMulti(ctx, keys, subjects)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repo *{{.RepositoryStructName}}) Delete(ctx context.Context, {{.KeyValueName}} {{.KeyFieldType}}) error {
+{{- if eq .KeyFieldType "int64"}}
+	key := datastore.IDKey(repo.kind, {{.KeyValueName}}, nil)
+{{else if eq .KeyFieldType "string"}}
+	key := datastore.NameKey(repo.kind, {{.KeyValueName}}, nil)
 {{else}}
 	key := {{.KeyValueName}}
 {{end}}
 	return repo.datastoreClient.Delete(ctx, key)
+}
+
+func (repo *{{.RepositoryStructName}}) DeleteMulti(ctx context.Context, {{.KeyValueName}}s []{{.KeyFieldType}}) error {
+{{- if eq .KeyFieldType "int64"}}
+	keys := make([]*datastore.Key, 0, len({{.KeyValueName}}s))
+
+	for i := range {{.KeyValueName}}s {
+		keys = append(keys, datastore.IDKey(repo.kind, {{.KeyValueName}}s[i], nil))
+	}
+{{else if eq .KeyFieldType "string"}}
+	keys := make([]*datastore.Key, 0, len({{.KeyValueName}}s))
+
+	for i := range {{.KeyValueName}}s {
+		keys = append(keys, datastore.NameKey(repo.kind, {{.KeyValueName}}s[i], nil))
+	}
+{{else}}
+	keys := {{.KeyValueName}}s
+{{end}}
+	return repo.datastoreClient.DeleteMulti(ctx, keys)
 }
 `
