@@ -64,7 +64,8 @@ func TestDatastore(t *testing.T) {
 	now := time.Unix(time.Now().Unix(), 0)
 	desc := "hello"
 
-	key, err := taskRepo.Insert(ctx, &task.Task{
+	id, err := taskRepo.Insert(ctx, &task.Task{
+		ID:      1234,
 		Desc:    desc,
 		Created: now,
 		Done:    true,
@@ -74,20 +75,20 @@ func TestDatastore(t *testing.T) {
 		t.Fatalf("failed to put item: %+v", err)
 	}
 
-	ret, err := taskRepo.Get(ctx, key)
+	ret, err := taskRepo.Get(ctx, id)
 
 	if err != nil {
 		t.Fatalf("failed to get item: %+v", err)
 	}
 
 	compareTask(t, &task.Task{
-		ID:      key,
+		ID:      id,
 		Desc:    desc,
 		Created: now,
 		Done:    true,
 	}, ret)
 
-	rets, err := taskRepo.GetMulti(ctx, []int64{key})
+	rets, err := taskRepo.GetMulti(ctx, []int64{id})
 
 	if err != nil {
 		t.Fatalf("failed to get item: %+v", err)
@@ -98,24 +99,24 @@ func TestDatastore(t *testing.T) {
 	}
 
 	compareTask(t, &task.Task{
-		ID:      key,
+		ID:      id,
 		Desc:    desc,
 		Created: now,
 		Done:    true,
 	}, rets[0])
 
 	compareTask(t, &task.Task{
-		ID:      key,
+		ID:      id,
 		Desc:    desc,
 		Created: now,
 		Done:    true,
 	}, ret)
 
-	if err := taskRepo.Delete(ctx, key); err != nil {
+	if err := taskRepo.DeleteByID(ctx, id); err != nil {
 		t.Fatalf("delete failed: %+v", err)
 	}
 
-	if _, err := taskRepo.Get(ctx, key); err != datastore.ErrNoSuchEntity {
+	if _, err := taskRepo.Get(ctx, id); err != datastore.ErrNoSuchEntity {
 		t.Fatalf("Get deleted item should return ErrNoSuchEntity: %+v", err)
 	}
 }
