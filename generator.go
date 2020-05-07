@@ -6,6 +6,13 @@ import (
 	"text/template"
 )
 
+type IndexesInfo struct {
+	Comment    string
+	Field      string
+	Label      string
+	SearchItem string // TODO `前方一致` や `部分一致` など (5/7 unused)
+}
+
 type generator struct {
 	PackageName       string
 	GeneratedFileName string
@@ -20,17 +27,8 @@ type generator struct {
 	KeyFieldType string
 
 	KeyValueName string // lower camel case
-}
 
-func (g *generator) generate(writer io.Writer) {
-	g.setting()
-	t := template.Must(template.New("tmpl").Parse(tmpl))
-
-	err := t.Execute(writer, g)
-
-	if err != nil {
-		log.Printf("failed to execute template: %+v", err)
-	}
+	ConstMapForIndexes []IndexesInfo
 }
 
 func (g *generator) setting() {
@@ -48,6 +46,39 @@ func (g *generator) setRepositoryStructName() {
 	}
 	g.RepositoryStructName = prefix + name[1:]
 }
+
+func (g *generator) generate(writer io.Writer) {
+	g.setting()
+	t := template.Must(template.New("tmpl").Parse(tmpl))
+
+	err := t.Execute(writer, g)
+
+	if err != nil {
+		log.Printf("failed to execute template: %+v", err)
+	}
+}
+
+func (g *generator) generateConstant(writer io.Writer) {
+	g.setting()
+	t := template.Must(template.New("tmpl").Parse(tmplConst))
+
+	err := t.Execute(writer, g)
+
+	if err != nil {
+		log.Printf("failed to execute template: %+v", err)
+	}
+}
+
+const tmplConst = `// THIS FILE IS A GENERATED CODE. EDIT OK
+package configs
+
+const (
+{{- range .ConstMapForIndexes }}
+	// {{ .Comment }}検索用ラベル
+	{{ .Field }} = "{{ .Label }}"
+{{- end }}
+)
+`
 
 // nolint:lll
 const tmpl = `// THIS FILE IS A GENERATED CODE. DO NOT EDIT

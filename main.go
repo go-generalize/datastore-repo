@@ -12,6 +12,7 @@ import (
 
 	"github.com/fatih/structtag"
 	"github.com/iancoleman/strcase"
+	"golang.org/x/xerrors"
 )
 
 func main() {
@@ -87,9 +88,26 @@ func traverse(pkg *ast.Package, fs *token.FileSet, structName string) error {
 	return fmt.Errorf("no such struct: %s", structName)
 }
 
+func uppercaseExtraction(name string) (lower string) {
+	for _, x := range name {
+		if 65 <= x && x <= 90 {
+			lower += string(x + 32)
+		}
+	}
+	return
+}
+
+const queryLabel = "QueryLabel"
+
 func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) error {
+	dupMap := make(map[string]int)
+	filedLabel := gen.StructName + queryLabel
 	for _, field := range structType.Fields.List {
 		// structの各fieldを調査
+		if len(field.Names) != 1 {
+			return xerrors.New("`field.Names` must have only one element")
+		}
+		name := field.Names[0].Name
 
 		if field.Tag == nil {
 			continue
@@ -102,7 +120,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		if err != nil {
 			log.Printf(
 				"%s: tag for %s in struct %s in %s",
-				pos, field.Names[0].Name, gen.StructName, gen.GeneratedFileName+".go",
+				pos, name, gen.StructName, gen.GeneratedFileName+".go",
 			)
 
 			continue
@@ -111,6 +129,19 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		_, err = tags.Get("datastore_key")
 
 		if err != nil {
+			u := uppercaseExtraction(name)
+			if _, ok := dupMap[u]; !ok {
+				dupMap[u] = 1
+			} else {
+				dupMap[u]++
+				u = fmt.Sprintf("%s%d", u, dupMap[u])
+			}
+			idx := IndexesInfo{
+				Field: filedLabel + name,
+				Label: u,
+			}
+			idx.Comment = fmt.Sprintf("%s %s", idx.Field, name) // TODO `前方一致` や `部分一致` など
+			gen.ConstMapForIndexes = append(gen.ConstMapForIndexes, idx)
 			continue
 		}
 
@@ -125,7 +156,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			return fmt.Errorf("%s: datastore_key tag can be set to only one field", pos)
 		}
 
-		gen.KeyFieldName = field.Names[0].Name
+		gen.KeyFieldName = name
 		gen.KeyFieldType = getTypeName(field.Type)
 
 		if gen.KeyFieldType != "int64" &&
@@ -134,20 +165,38 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			return fmt.Errorf("%s: supported key types are int64, string, *datastore.Key", pos)
 		}
 
-		gen.KeyValueName = strcase.ToLowerCamel(field.Names[0].Name)
+		gen.KeyValueName = strcase.ToLowerCamel(name)
 	}
 
-	fp, err := os.Create(gen.GeneratedFileName + ".go")
+	{
+		fp, err := os.Create(gen.GeneratedFileName + ".go")
+		if err != nil {
+			panic(err)
+		}
+		defer fp.Close()
 
-	if err != nil {
-		panic(err)
+		gen.generate(fp)
 	}
 
-	gen.generate(
-		fp,
-	)
-
-	fp.Close()
+	{
+		if !exists("configs") {
+			if err := os.Mkdir("configs", 0777); err != nil {
+				return err
+			}
+		}
+		path := "configs/" + strcase.ToLowerCamel(gen.StructName) + "_const.go"
+		fp, err := os.Create(path)
+		if err != nil {
+			panic(err)
+		}
+		defer fp.Close()
+		gen.generateConstant(fp)
+	}
 
 	return nil
+}
+
+func exists(filename string) bool {
+	_, err := os.Stat(filename)
+	return err == nil
 }
