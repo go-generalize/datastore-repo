@@ -12,6 +12,7 @@ type generator struct {
 	FileName          string
 	StructName        string
 
+	GoGenerate              string
 	RepositoryStructName    string
 	RepositoryInterfaceName string
 
@@ -22,8 +23,7 @@ type generator struct {
 }
 
 func (g *generator) generate(writer io.Writer) {
-	g.RepositoryInterfaceName = g.StructName + "Repository"
-	g.setRepositoryStructName()
+	g.setting()
 	t := template.Must(template.New("tmpl").Parse(tmpl))
 
 	err := t.Execute(writer, g)
@@ -31,6 +31,12 @@ func (g *generator) generate(writer io.Writer) {
 	if err != nil {
 		log.Printf("failed to execute template: %+v", err)
 	}
+}
+
+func (g *generator) setting() {
+	g.GoGenerate = "go:generate"
+	g.RepositoryInterfaceName = g.StructName + "Repository"
+	g.setRepositoryStructName()
 }
 
 func (g *generator) setRepositoryStructName() {
@@ -54,7 +60,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-//go:generate mockgen -source {{.GeneratedFileName}}.go -destination mock_{{.GeneratedFileName}}/mock_{{.GeneratedFileName}}.go
+//{{.GoGenerate}} mockgen -source {{.GeneratedFileName}}.go -destination mock_{{.GeneratedFileName}}/mock_{{.GeneratedFileName}}.go
 
 type {{.RepositoryInterfaceName}} interface {
 	// Single
