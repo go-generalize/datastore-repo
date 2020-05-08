@@ -366,7 +366,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	}
 
 	for _, f := range built {
-		q = q.Filter("Indexes =", f)
+		q = q.Filter("indexes =", f)
 	}
 {{- end }}
 	subjects := make([]*{{ .StructName }}, 0)
