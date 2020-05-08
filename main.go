@@ -188,7 +188,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 						idx.Method += "Suffix"
 						idx.ConstName += "Suffix"
 						idx.Comment = fmt.Sprintf("%s %s後方一致", idx.ConstName, name)*/
-					case "m", "matching": // 完全一致 (Add) Default
+					case "e", "equal": // 完全一致 (Add) Default
 						idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
 					case "l", "like": // 部分一致
 						idx.Method += "Biunigrams"
