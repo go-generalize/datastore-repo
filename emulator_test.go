@@ -35,6 +35,10 @@ func TestGenerator(t *testing.T) {
 			t.Fatalf("failed to generate for testfiles/a: %+v", err)
 		}
 
+		if err := run("Name"); err != nil {
+			t.Fatalf("failed to generate for testfiles/a: %+v", err)
+		}
+
 		execTest(t)
 	})
 
