@@ -1,5 +1,5 @@
 // THIS FILE IS A GENERATED CODE. DO NOT EDIT
-package configs
+package task
 
 import "strconv"
 

@@ -49,7 +49,6 @@ type generator struct {
 }
 
 func (g *generator) setting() {
-	g.ImportName = ImportName
 	g.GoGenerate = "go:generate"
 	g.RepositoryInterfaceName = g.StructName + "Repository"
 	g.setRepositoryStructName()
@@ -120,7 +119,7 @@ func (g *generator) generateConstant(writer io.Writer) {
 }
 
 const tmplConst = `// THIS FILE IS A GENERATED CODE. DO NOT EDIT
-package configs
+package {{ .PackageName }}
 
 import "strconv"
 
@@ -160,7 +159,7 @@ func (str IntegerCriteria) Int64() int64 {
 `
 
 const tmplLabel = `// THIS FILE IS A GENERATED CODE. EDIT OK
-package configs
+package {{ .PackageName }}
 
 const (
 {{- range $fi := .FieldInfos }}
@@ -183,7 +182,6 @@ import (
 {{- end }}
 
 	"cloud.google.com/go/datastore"
-	"{{ .ImportName }}/configs"
 {{- if eq .EnableIndexes true }}
 	"github.com/knightso/xian"
 {{- end }}
@@ -256,21 +254,21 @@ func (repo *{{ .RepositoryStructName }}) getKeys(subjects ...*{{ .StructName }})
 // saveIndexes 拡張フィルタを保存する
 func (repo *{{ .RepositoryStructName }}) saveIndexes(subjects ...*{{ .StructName }}) error {
 	for _, subject := range subjects {
-		idx := xian.NewIndexes({{ .LowerStructName }}IndexesConfig)
+		idx := xian.NewIndexes({{ .StructName }}IndexesConfig)
 {{- range $fi := .FieldInfos }}
 {{- range $idx := $fi.Indexes }}
 {{- if eq $fi.FieldType "bool" }}
-		idx.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }})
+		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }})
 {{- else if eq $fi.FieldType "string" }}
 {{- if eq $idx.Method "AddPrefix" }}
-		idx.{{ $idx.Method }}es(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }})
+		idx.{{ $idx.Method }}es({{ $idx.ConstName }}, subject.{{ $fi.Field }})
 {{- else }}
-		idx.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }})
+		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }})
 {{- end }}
 {{- else if eq $fi.FieldType "int" }}
-		idx.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }})
+		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }})
 {{- else if eq $fi.FieldType "time.Time" }}
-		idx.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }}.Unix())
+		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }}.Unix())
 {{- end }}
 {{- end }}
 {{- end }}
@@ -291,13 +289,13 @@ var {{ .LowerStructName }}IndexesConfig = &xian.Config{
 {{- end }}
 
 // {{ .StructName }}ListReq List取得時に渡すリクエスト
-// └─ bool/int(64) は stringで渡す(configs.BoolCriteria | configs.IntegerCriteria)
+// └─ bool/int(64) は stringで渡す(BoolCriteria | IntegerCriteria)
 type {{ .StructName }}ListReq struct {
 {{- range .FieldInfos }}
 {{- if eq .FieldType "bool" }}
-	{{ .Field }} configs.BoolCriteria
+	{{ .Field }} BoolCriteria
 {{- else if or (eq .FieldType "int") (eq .FieldType "int64") }}
-	{{ .Field }} configs.IntegerCriteria
+	{{ .Field }} IntegerCriteria
 {{- else }}
 	{{ .Field }} {{ .FieldType }}
 {{- end }}
@@ -321,7 +319,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	if req.{{ $fi.Field }} != "" {
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}
-		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }})
+		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ $fi.Field }})
 {{- end }}
 {{- else }}
 		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }}.Bool())
@@ -331,17 +329,17 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	if req.{{ $fi.Field }} != "" {
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}
-		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }})
+		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ $fi.Field }})
 {{- end }}
 {{- else }}
 		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }})
 {{- end }}
 	}
 {{- else if or (eq $fi.FieldType "int") (eq $fi.FieldType "int64") }}
-	if req.{{ $fi.Field }} != configs.IntegerCriteriaEmpty {
+	if req.{{ $fi.Field }} != IntegerCriteriaEmpty {
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}
-		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ Parse $fi.Field $fi.FieldType }})
+		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ Parse $fi.Field $fi.FieldType }})
 {{- end }}
 {{- else }}
 		q = q.Filter("{{ $fi.DsTag }} =", req.{{ Parse $fi.Field $fi.FieldType }})
@@ -351,7 +349,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	if !req.{{ $fi.Field }}.IsZero() {
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}
-		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }}.Unix())
+		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ $fi.Field }}.Unix())
 {{- end }}
 {{- else }}
 		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }})

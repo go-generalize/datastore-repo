@@ -11,7 +11,6 @@ import (
 
 	"cloud.google.com/go/datastore"
 	task "github.com/go-generalize/repo_generator/testfiles/a"
-	"github.com/go-generalize/repo_generator/testfiles/a/configs"
 )
 
 func initDatastoreClient(t *testing.T) *datastore.Client {
@@ -90,7 +89,7 @@ func TestDatastoreListTask(t *testing.T) {
 
 	t.Run("int(1件)", func(t *testing.T) {
 		req := &task.TaskListReq{
-			Count: configs.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
+			Count: task.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
 		}
 
 		tasks, err := taskRepo.List(ctx, req, nil)
@@ -105,7 +104,7 @@ func TestDatastoreListTask(t *testing.T) {
 
 	t.Run("bool(10件)", func(t *testing.T) {
 		req := &task.TaskListReq{
-			Done: configs.BoolCriteriaTrue,
+			Done: task.BoolCriteriaTrue,
 		}
 
 		tasks, err := taskRepo.List(ctx, req, nil)
@@ -171,7 +170,7 @@ func TestDatastoreListNameWithIndexes(t *testing.T) {
 
 	t.Run("int(1件)", func(t *testing.T) {
 		req := &task.NameListReq{
-			Count: configs.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
+			Count: task.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
 		}
 
 		tasks, err := nameRepo.List(ctx, req, nil)
@@ -186,7 +185,7 @@ func TestDatastoreListNameWithIndexes(t *testing.T) {
 
 	t.Run("bool(10件)", func(t *testing.T) {
 		req := &task.NameListReq{
-			Done: configs.BoolCriteriaTrue,
+			Done: task.BoolCriteriaTrue,
 		}
 
 		tasks, err := nameRepo.List(ctx, req, nil)
