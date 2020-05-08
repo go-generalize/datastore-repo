@@ -320,7 +320,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }})
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.Field }}", req.{{ $fi.Field }}.Bool())
+		q = q.Filter("{{ $fi.Field }} =", req.{{ $fi.Field }}.Bool())
 {{- end }}
 	}
 {{- else if eq $fi.FieldType "string" }}
@@ -330,7 +330,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }})
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.Field }}", req.{{ $fi.Field }})
+		q = q.Filter("{{ $fi.Field }} =", req.{{ $fi.Field }})
 {{- end }}
 	}
 {{- else if or (eq $fi.FieldType "int") (eq $fi.FieldType "int64") }}
@@ -340,7 +340,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ Parse $fi.Field $fi.FieldType }})
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.Field }}", req.{{ Parse $fi.Field $fi.FieldType }})
+		q = q.Filter("{{ $fi.Field }} =", req.{{ Parse $fi.Field $fi.FieldType }})
 {{- end }}
 	}
 {{- else if eq $fi.FieldType "time.Time" }}
@@ -350,7 +350,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }}.Unix())
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.Field }}", req.{{ $fi.Field }})
+		q = q.Filter("{{ $fi.Field }} =", req.{{ $fi.Field }})
 {{- end }}
 	}
 {{- end }}
@@ -515,7 +515,7 @@ func (repo *{{ .RepositoryStructName }}) InsertMulti(ctx context.Context, subjec
 	}
 
 	var cnt int
-	if err := repo.datastoreClient.GetMulti(ctx, keys, make([]*{{ .StructName }}, 0, len(subjects))); err != nil {
+	if err := repo.datastoreClient.GetMulti(ctx, keys, make([]*{{ .StructName }}, len(subjects))); err != nil {
 		if errs, ok := err.(datastore.MultiError); ok {
 			for _, err := range errs {
 				if err == datastore.ErrNoSuchEntity {
@@ -538,7 +538,7 @@ func (repo *{{ .RepositoryStructName }}) InsertMulti(ctx context.Context, subjec
 		return nil, err
 	}
 
-	vessels := make([]{{ .KeyFieldType }}, 0, len(resKeys))
+	vessels := make([]{{ .KeyFieldType }}, len(resKeys))
 	for i := range resKeys {
 		if keys[i] != nil {
 {{- if eq .KeyFieldType "int64" }}
@@ -560,7 +560,7 @@ func (repo *{{ .RepositoryStructName }}) UpdateMulti(ctx context.Context, subjec
 		return xerrors.Errorf("error in getKeys method: %w", err)
 	}
 
-	if err := repo.datastoreClient.GetMulti(ctx, keys, make([]*{{ .StructName }}, 0, len(subjects))); err != nil {
+	if err := repo.datastoreClient.GetMulti(ctx, keys, make([]*{{ .StructName }}, len(subjects))); err != nil {
 		if _, ok := err.(datastore.MultiError); ok {
 			return err
 		}
