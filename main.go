@@ -15,16 +15,12 @@ import (
 	"golang.org/x/xerrors"
 )
 
-var ImportName string
-
 func main() {
 	l := len(os.Args)
-	if l < 3 {
+	if l < 2 {
 		fmt.Println("You have to specify the struct name of target")
 		os.Exit(1)
 	}
-
-	ImportName = os.Args[2]
 
 	if err := run(os.Args[1]); err != nil {
 		log.Fatal(err.Error())
@@ -252,12 +248,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 	}
 
 	{
-		if !exists("configs") {
-			if err := os.Mkdir("configs", 0777); err != nil {
-				return err
-			}
-		}
-		path := "configs/" + strcase.ToLowerCamel(gen.StructName) + "_label.go"
+		path := gen.FileName + "_label.go"
 		fp, err := os.Create(path)
 		if err != nil {
 			panic(err)
@@ -267,7 +258,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 	}
 
 	{
-		fp, err := os.Create("configs/constant.go")
+		fp, err := os.Create("constant.go")
 		if err != nil {
 			panic(err)
 		}
@@ -276,9 +267,4 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 	}
 
 	return nil
-}
-
-func exists(filename string) bool {
-	_, err := os.Stat(filename)
-	return err == nil
 }
