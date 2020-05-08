@@ -207,10 +207,6 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			return fmt.Errorf("%s: key field for datastore should have datastore:\"-\" tag", pos)
 		}
 
-		if len(field.Names) != 1 {
-			return fmt.Errorf("%s: datastore_key tag can be set to only one field", pos)
-		}
-
 		gen.KeyFieldName = name
 		gen.KeyFieldType = getTypeName(field.Type)
 
