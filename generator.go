@@ -183,6 +183,9 @@ import (
 
 	"cloud.google.com/go/datastore"
 	"{{ .ImportName }}/configs"
+{{- if eq .EnableIndexes true }}
+	"github.com/knightso/xian"
+{{- end }}
 	"golang.org/x/xerrors"
 )
 
