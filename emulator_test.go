@@ -48,7 +48,7 @@ func TestGenerator(t *testing.T) {
 		}
 
 		if err := run("Task"); err != nil {
-			t.Fatalf("failed to generate for testfiles/a: %+v", err)
+			t.Fatalf("failed to generate for testfiles/b: %+v", err)
 		}
 
 		execTest(t)
@@ -60,7 +60,7 @@ func TestGenerator(t *testing.T) {
 		}
 
 		if err := run("Task"); err != nil {
-			t.Fatalf("failed to generate for testfiles/a: %+v", err)
+			t.Fatalf("failed to generate for testfiles/c: %+v", err)
 		}
 
 		execTest(t)
