@@ -85,7 +85,7 @@ func traverse(pkg *ast.Package, fs *token.FileSet, structName string) error {
 		}
 	}
 
-	return fmt.Errorf("no such struct: %s", structName)
+	return xerrors.Errorf("no such struct: %s", structName)
 }
 
 func uppercaseExtraction(name string) (lower string) {
@@ -106,7 +106,7 @@ const (
 	typeInt64  = "int64"
 )
 
-func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) error {
+func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) (err error) {
 	dupMap := make(map[string]int)
 	filedLabel := gen.StructName + queryLabel
 	for _, field := range structType.Fields.List {
@@ -138,8 +138,8 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			continue
 		}
 
-		_, er := tags.Get("datastore_key")
-		if er != nil {
+		_, err = tags.Get("datastore_key")
+		if err != nil {
 			f := func() string {
 				u := uppercaseExtraction(name)
 				if _, ok := dupMap[u]; !ok {
@@ -222,7 +222,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 
 		// datastore タグが存在しないか-になっていない
 		if err != nil || strings.Split(dsTag.Value(), ",")[0] != "-" {
-			return fmt.Errorf("%s: key field for datastore should have datastore:\"-\" tag", pos)
+			return xerrors.Errorf("%s: key field for datastore should have datastore:\"-\" tag", pos)
 		}
 
 		gen.KeyFieldName = name
@@ -231,7 +231,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		if gen.KeyFieldType != typeInt64 &&
 			gen.KeyFieldType != typeString &&
 			!strings.HasSuffix(gen.KeyFieldType, ".Key") {
-			return fmt.Errorf("%s: supported key types are int64, string, *datastore.Key", pos)
+			return xerrors.Errorf("%s: supported key types are int64, string, *datastore.Key", pos)
 		}
 
 		gen.KeyValueName = strcase.ToLowerCamel(name)
