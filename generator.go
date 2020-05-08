@@ -35,6 +35,16 @@ func (g *generator) setting() {
 	g.GoGenerate = "go:generate"
 	g.RepositoryInterfaceName = g.StructName + "Repository"
 	g.setRepositoryStructName()
+	g.buildConditions()
+}
+
+func (g *generator) buildConditions() {
+	for _, field := range g.FieldInfos {
+		switch field.FieldType {
+		case "time.Time":
+			g.ImportList = append(g.ImportList, ImportInfo{"time"})
+		}
+	}
 }
 
 func (g *generator) setRepositoryStructName() {
@@ -99,6 +109,9 @@ package {{.PackageName}}
 
 import (
 	"context"
+{{- range .ImportList }}
+	"{{ .Name }}"
+{{- end }}
 
 	"cloud.google.com/go/datastore"
 	"golang.org/x/xerrors"
