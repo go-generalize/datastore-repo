@@ -180,30 +180,41 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
 			} else {
 				filters := strings.Split(idr.Value(), ",")
+				dupIdr := make(map[string]struct{})
 				for _, fil := range filters {
 					idx := &IndexesInfo{
 						ConstName: filedLabel + name,
 						Label:     f(),
 						Method:    "Add",
 					}
+					var dupFlag string
 					switch fil {
 					case "p", "prefix": // 前方一致 (AddPrefix)
 						idx.Method += prefix
 						idx.ConstName += prefix
 						idx.Comment = fmt.Sprintf("%s %s前方一致", idx.ConstName, name)
+						dupFlag = "p"
 					case "s", "suffix": /* TODO 後方一致
 						idx.Method += Suffix
 						idx.ConstName += Suffix
-						idx.Comment = fmt.Sprintf("%s %s後方一致", idx.ConstName, name)*/
+						idx.Comment = fmt.Sprintf("%s %s後方一致", idx.ConstName, name)
+						dup = "s"*/
 					case "e", "equal": // 完全一致 (Add) Default
 						idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
+						dupIdr["equal"] = struct{}{}
+						dupFlag = "e"
 					case "l", "like": // 部分一致
 						idx.Method += biunigrams
 						idx.ConstName += "Like"
 						idx.Comment = fmt.Sprintf("%s %s部分一致", idx.ConstName, name)
+						dupFlag = "l"
 					default:
 						continue
 					}
+					if _, ok := dupIdr[dupFlag]; ok {
+						continue
+					}
+					dupIdr[dupFlag] = struct{}{}
 					fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
 				}
 			}
