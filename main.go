@@ -159,7 +159,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			} else {
 				fieldInfo.DsTag = strings.Split(dsTag.Value(), ",")[0]
 			}
-			ft, err := tags.Get("filter")
+			idr, err := tags.Get("indexer")
 			if err != nil || fieldInfo.FieldType != "string" {
 				idx := &IndexesInfo{
 					ConstName: filedLabel + name,
@@ -172,7 +172,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				}
 				fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
 			} else {
-				filters := strings.Split(ft.Value(), ",")
+				filters := strings.Split(idr.Value(), ",")
 				for _, fil := range filters {
 					idx := &IndexesInfo{
 						ConstName: filedLabel + name,
