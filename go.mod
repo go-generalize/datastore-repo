@@ -3,6 +3,7 @@ module github.com/go-generalize/repo_generator
 go 1.14
 
 require (
+	cloud.google.com/go v0.57.0 // indirect
 	cloud.google.com/go/bigquery v1.6.0 // indirect
 	cloud.google.com/go/datastore v1.1.0
 	github.com/fatih/structtag v1.2.0
@@ -11,12 +12,10 @@ require (
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 	github.com/knightso/xian v0.1.0
 	github.com/pkg/errors v0.9.1 // indirect
-	golang.org/x/net v0.0.0-20200501053045-e0ff5e5a1de5 // indirect
+	golang.org/x/net v0.0.0-20200506145744-7e3656a0809f // indirect
 	golang.org/x/sys v0.0.0-20200501145240-bc7a7d42d5c3 // indirect
-	golang.org/x/tools v0.0.0-20200505023115-26f46d2f7ef8
+	golang.org/x/tools v0.0.0-20200507205054-480da3ebd79c
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	google.golang.org/api v0.23.0 // indirect
-	google.golang.org/appengine v1.6.6 // indirect
-	google.golang.org/genproto v0.0.0-20200430143042-b979b6f78d84 // indirect
-	google.golang.org/grpc v1.29.1 // indirect
+	google.golang.org/genproto v0.0.0-20200507105951-43844f6eee31 // indirect
 )
