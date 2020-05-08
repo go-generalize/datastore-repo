@@ -14,6 +14,7 @@ type IndexesInfo struct {
 }
 
 type FieldInfo struct {
+	DsTag     string
 	Field     string
 	FieldType string
 	Indexes   []*IndexesInfo
@@ -323,7 +324,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }})
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.Field }} =", req.{{ $fi.Field }}.Bool())
+		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }}.Bool())
 {{- end }}
 	}
 {{- else if eq $fi.FieldType "string" }}
@@ -333,7 +334,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }})
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.Field }} =", req.{{ $fi.Field }})
+		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }})
 {{- end }}
 	}
 {{- else if or (eq $fi.FieldType "int") (eq $fi.FieldType "int64") }}
@@ -343,7 +344,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ Parse $fi.Field $fi.FieldType }})
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.Field }} =", req.{{ Parse $fi.Field $fi.FieldType }})
+		q = q.Filter("{{ $fi.DsTag }} =", req.{{ Parse $fi.Field $fi.FieldType }})
 {{- end }}
 	}
 {{- else if eq $fi.FieldType "time.Time" }}
@@ -353,7 +354,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }}.Unix())
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.Field }} =", req.{{ $fi.Field }})
+		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }})
 {{- end }}
 	}
 {{- end }}

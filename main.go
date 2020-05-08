@@ -154,6 +154,12 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				FieldType: getTypeName(field.Type),
 				Indexes:   make([]*IndexesInfo, 0),
 			}
+			dsTag, err := tags.Get("datastore")
+			if err != nil {
+				fieldInfo.DsTag = fieldInfo.Field
+			} else {
+				fieldInfo.DsTag = strings.Split(dsTag.Value(), ",")[0]
+			}
 			ft, err := tags.Get("filter")
 			if err != nil || field.FieldType != "string" {
 				idx := &IndexesInfo{
