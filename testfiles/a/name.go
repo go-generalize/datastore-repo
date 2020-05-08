@@ -8,8 +8,9 @@ import (
 //go:generate gofmt -w ./
 
 type Name struct {
-	Desc    string    `datastore:"description"`
-	Created time.Time `datastore:"created"`
-	Done    bool      `datastore:"done"`
 	ID      int64     `datastore:"-" datastore_key:""` // supported type: string, int64, *datastore.Key
+	Created time.Time `datastore:"created"`
+	Desc    string    `datastore:"description"`
+	Done    bool      `datastore:"done"`
+	Count   int       `datastore:"count"`
 }
