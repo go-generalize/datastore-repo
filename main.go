@@ -102,7 +102,14 @@ func uppercaseExtraction(name string) (lower string) {
 	return
 }
 
-const queryLabel = "QueryLabel"
+const (
+	biunigrams = "Biunigrams"
+	prefix     = "Prefix"
+	queryLabel = "QueryLabel"
+	typeString = "string"
+	typeInt    = "int"
+	typeInt64  = "int64"
+)
 
 func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) error {
 	dupMap := make(map[string]int)
@@ -136,8 +143,8 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			continue
 		}
 
-		_, err = tags.Get("datastore_key")
-		if err != nil {
+		_, er := tags.Get("datastore_key")
+		if er != nil {
 			f := func() string {
 				u := uppercaseExtraction(name)
 				if _, ok := dupMap[u]; !ok {
@@ -153,21 +160,21 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				FieldType: getTypeName(field.Type),
 				Indexes:   make([]*IndexesInfo, 0),
 			}
-			dsTag, err := tags.Get("datastore")
-			if err != nil {
+
+			if dsTag, err := tags.Get("datastore"); err != nil {
 				fieldInfo.DsTag = fieldInfo.Field
 			} else {
 				fieldInfo.DsTag = strings.Split(dsTag.Value(), ",")[0]
 			}
-			idr, err := tags.Get("indexer")
-			if err != nil || fieldInfo.FieldType != "string" {
+
+			if idr, err := tags.Get("indexer"); err != nil || fieldInfo.FieldType != typeString {
 				idx := &IndexesInfo{
 					ConstName: filedLabel + name,
 					Label:     f(),
 					Method:    "Add",
 				}
 				idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
-				if fieldInfo.FieldType != "string" {
+				if fieldInfo.FieldType != typeString {
 					idx.Method += "Something"
 				}
 				fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
@@ -181,17 +188,17 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 					}
 					switch fil {
 					case "p", "prefix": // 前方一致 (AddPrefix)
-						idx.Method += "Prefix"
-						idx.ConstName += "Prefix"
+						idx.Method += prefix
+						idx.ConstName += prefix
 						idx.Comment = fmt.Sprintf("%s %s前方一致", idx.ConstName, name)
 					case "s", "suffix": /* TODO 後方一致
-						idx.Method += "Suffix"
-						idx.ConstName += "Suffix"
+						idx.Method += Suffix
+						idx.ConstName += Suffix
 						idx.Comment = fmt.Sprintf("%s %s後方一致", idx.ConstName, name)*/
 					case "e", "equal": // 完全一致 (Add) Default
 						idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
 					case "l", "like": // 部分一致
-						idx.Method += "Biunigrams"
+						idx.Method += biunigrams
 						idx.ConstName += "Like"
 						idx.Comment = fmt.Sprintf("%s %s部分一致", idx.ConstName, name)
 					default:
@@ -215,8 +222,8 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		gen.KeyFieldName = name
 		gen.KeyFieldType = getTypeName(field.Type)
 
-		if gen.KeyFieldType != "int64" &&
-			gen.KeyFieldType != "string" &&
+		if gen.KeyFieldType != typeInt64 &&
+			gen.KeyFieldType != typeString &&
 			!strings.HasSuffix(gen.KeyFieldType, ".Key") {
 			return fmt.Errorf("%s: supported key types are int64, string, *datastore.Key", pos)
 		}

@@ -11,9 +11,11 @@ import (
 type Name struct {
 	ID      int64     `datastore:"-" datastore_key:""` // supported type: string, int64, *datastore.Key
 	Created time.Time `datastore:"created"`
-	Desc    string    `datastore:"description" indexer:"l"`  // supported word: e/equal(Default), l/like, p/prefix, TODO s/suffix
-	Desc2   string    `datastore:"description2" indexer:"p"` // supported word: e/equal(Default), l/like, p/prefix, TODO s/suffix
-	Done    bool      `datastore:"done"`
-	Count   int       `datastore:"count"`
-	Indexes []string  `datastore:"indexes"`
+	// supported indexer tags word: e/equal(Default), l/like, p/prefix,
+	// TODO s/suffix
+	Desc    string   `datastore:"description" indexer:"l"`
+	Desc2   string   `datastore:"description2" indexer:"p"`
+	Done    bool     `datastore:"done"`
+	Count   int      `datastore:"count"`
+	Indexes []string `datastore:"indexes"`
 }

@@ -81,8 +81,8 @@ func (g *generator) generate(writer io.Writer) {
 		"Parse": func(field, fieldType string) string {
 			fn := ".Int()"
 			switch fieldType {
-			case "int":
-			case "int64":
+			case typeInt:
+			case typeInt64:
 				fn = ".Int64()"
 			default:
 				panic("invalid types")
