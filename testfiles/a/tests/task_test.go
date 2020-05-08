@@ -55,10 +55,10 @@ func compareTask(t *testing.T, expected, actual *task.Task) {
 	}
 }
 
-func TestDatastoreList(t *testing.T) {
+func TestDatastoreListTask(t *testing.T) {
 	client := initDatastoreClient(t)
 
-	taskRepo := task.NewNameRepository(client)
+	taskRepo := task.NewTaskRepository(client)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	var ids []int64
@@ -70,11 +70,11 @@ func TestDatastoreList(t *testing.T) {
 	}()
 
 	now := time.Unix(time.Now().Unix(), 0)
-	desc := "Hello, World."
+	desc := "Hello, World!"
 
-	tks := make([]*task.Name, 0)
+	tks := make([]*task.Task, 0)
 	for i := int64(1); i <= 10; i++ {
-		tk := &task.Name{
+		tk := &task.Task{
 			ID:      i,
 			Created: now,
 			Desc:    fmt.Sprintf("%s%d", desc, i),
@@ -88,20 +88,178 @@ func TestDatastoreList(t *testing.T) {
 		t.Fatalf("%+v", err)
 	}
 
-	req := &task.NameListReq{
-		Done: configs.BoolCriteriaTrue, // FIXME 1 これがだけ指定したら条件に引っかかるものが抽出できるはずなのに現状できない
-		//Count: configs.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
-	}
+	t.Run("int(1件)", func(t *testing.T) {
+		req := &task.TaskListReq{
+			Count: configs.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
+		}
 
-	tasks, err := taskRepo.List(ctx, req, nil)
+		tasks, err := taskRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 1 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("bool(10件)", func(t *testing.T) {
+		req := &task.TaskListReq{
+			Done: configs.BoolCriteriaTrue,
+		}
+
+		tasks, err := taskRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 10 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("time.Time(10件)", func(t *testing.T) {
+		req := &task.TaskListReq{
+			Created: now,
+		}
+
+		tasks, err := taskRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 10 {
+			t.Fatal("not match")
+		}
+	})
+}
+
+func TestDatastoreListNameWithIndexes(t *testing.T) {
+	client := initDatastoreClient(t)
+
+	nameRepo := task.NewNameRepository(client)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	var ids []int64
+	defer func() {
+		defer cancel()
+		if err := nameRepo.DeleteMultiByIDs(ctx, ids); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	now := time.Unix(time.Now().Unix(), 0)
+	desc := "Hello, World!"
+	desc2 := "Prefix, Test!"
+
+	tks := make([]*task.Name, 0)
+	for i := int64(1); i <= 10; i++ {
+		tk := &task.Name{
+			ID:      i,
+			Created: now,
+			Desc:    fmt.Sprintf("%s%d", desc, i),
+			Desc2:   fmt.Sprintf("%s%d", desc2, i),
+			Done:    true,
+			Count:   int(i),
+		}
+		tks = append(tks, tk)
+	}
+	ids, err := nameRepo.InsertMulti(ctx, tks)
 	if err != nil {
 		t.Fatalf("%+v", err)
 	}
-	// FIXME 1
-	_ = tasks
-	//if len(tasks) != len(ids) {
-	//	t.Fatal("not match")
-	//}
+
+	t.Run("int(1件)", func(t *testing.T) {
+		req := &task.NameListReq{
+			Count: configs.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
+		}
+
+		tasks, err := nameRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 1 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("bool(10件)", func(t *testing.T) {
+		req := &task.NameListReq{
+			Done: configs.BoolCriteriaTrue,
+		}
+
+		tasks, err := nameRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 10 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("like(10件)", func(t *testing.T) {
+		req := &task.NameListReq{
+			Desc: "ll",
+		}
+
+		tasks, err := nameRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 10 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("prefix", func(t *testing.T) {
+		t.Run("Success", func(t *testing.T) {
+			req := &task.NameListReq{
+				Desc2: "Pre",
+			}
+
+			tasks, err := nameRepo.List(ctx, req, nil)
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+
+			if len(tasks) != 10 {
+				t.Fatal("not match")
+			}
+		})
+
+		t.Run("Failure", func(t *testing.T) {
+			req := &task.NameListReq{
+				Desc2: "He",
+			}
+
+			tasks, err := nameRepo.List(ctx, req, nil)
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+
+			if len(tasks) != 0 {
+				t.Fatal("not match")
+			}
+		})
+	})
+
+	t.Run("time.Time(10件)", func(t *testing.T) {
+		req := &task.NameListReq{
+			Created: now,
+		}
+
+		tasks, err := nameRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 10 {
+			t.Fatal("not match")
+		}
+	})
 }
 
 func TestDatastore(t *testing.T) {
