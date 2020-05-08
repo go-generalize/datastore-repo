@@ -106,7 +106,11 @@ const (
 	typeInt64  = "int64"
 )
 
-func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) (err error) {
+func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) error {
+	var (
+		tags *structtag.Tags
+		err  error
+	)
 	dupMap := make(map[string]int)
 	filedLabel := gen.StructName + queryLabel
 	for _, field := range structType.Fields.List {
@@ -122,14 +126,13 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) (er
 
 		pos := fs.Position(field.Pos()).String()
 
-		tags, err := structtag.Parse(strings.Trim(field.Tag.Value, "`"))
+		tags, err = structtag.Parse(strings.Trim(field.Tag.Value, "`"))
 
 		if err != nil {
 			log.Printf(
 				"%s: tag for %s in struct %s in %s",
 				pos, name, gen.StructName, gen.GeneratedFileName+".go",
 			)
-
 			continue
 		}
 
@@ -138,8 +141,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) (er
 			continue
 		}
 
-		_, err = tags.Get("datastore_key")
-		if err != nil {
+		if _, err := tags.Get("datastore_key"); err != nil {
 			f := func() string {
 				u := uppercaseExtraction(name)
 				if _, ok := dupMap[u]; !ok {
@@ -163,6 +165,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) (er
 			}
 
 			if idr, err := tags.Get("indexer"); err != nil || fieldInfo.FieldType != typeString {
+				_ = err
 				idx := &IndexesInfo{
 					ConstName: filedLabel + name,
 					Label:     f(),
