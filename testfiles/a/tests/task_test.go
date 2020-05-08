@@ -75,7 +75,7 @@ func TestDatastoreListTask(t *testing.T) {
 	tks := make([]*task.Task, 0)
 	for i := int64(1); i <= 10; i++ {
 		tk := &task.Task{
-			ID:      i,
+			ID:      i * 100,
 			Created: now,
 			Desc:    fmt.Sprintf("%s%d", desc, i),
 			Done:    true,
