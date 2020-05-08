@@ -382,7 +382,13 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 
 	for i, k := range keys {
 		if k != nil {
+{{- if eq .KeyFieldType "int64" }}
 			subjects[i].ID = k.ID
+{{ else if eq .KeyFieldType "string" }}
+			subjects[i].ID = k.Name
+{{ else }}
+			subjects[i].ID = k
+{{ end }}
 		}
 	}
 
