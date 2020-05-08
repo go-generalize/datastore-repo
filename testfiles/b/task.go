@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-//go:generate repo_generator Task
+//go:generate repo_generator Name github.com/go-generalize/repo_generator/testfiles/b
 
 type Task struct {
 	Desc    string    `datastore:"description"`

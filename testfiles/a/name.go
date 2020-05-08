@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-//go:generate repo_generator Name
+//go:generate repo_generator Name github.com/go-generalize/repo_generator/testfiles/a
 
 type Name struct {
 	Desc    string    `datastore:"description"`

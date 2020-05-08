@@ -6,7 +6,7 @@ import (
 	"cloud.google.com/go/datastore"
 )
 
-//go:generate repo_generator Task
+//go:generate repo_generator Name github.com/go-generalize/repo_generator/testfiles/c
 
 type Task struct {
 	Desc    string         `datastore:"description"`
