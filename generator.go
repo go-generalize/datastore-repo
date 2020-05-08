@@ -31,7 +31,6 @@ type generator struct {
 	GeneratedFileName string
 	FileName          string
 	StructName        string
-	LowerStructName   string
 
 	GoGenerate              string
 	RepositoryStructName    string
@@ -312,7 +311,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	}
 {{ $Enable := .EnableIndexes }}
 {{- if eq $Enable true }}
-	filters := xian.NewFilters({{ .LowerStructName }}IndexesConfig)
+	filters := xian.NewFilters({{ .StructName }}IndexesConfig)
 {{- end }}
 {{- range $fi := .FieldInfos }}
 {{- if eq $fi.FieldType "bool" }}

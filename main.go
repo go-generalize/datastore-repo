@@ -83,7 +83,6 @@ func traverse(pkg *ast.Package, fs *token.FileSet, structName string) error {
 					continue
 				}
 				gen.StructName = name
-				gen.LowerStructName = strcase.ToLowerCamel(name)
 
 				return generate(gen, fs, structType)
 			}
