@@ -49,7 +49,20 @@ func (g *generator) setRepositoryStructName() {
 
 func (g *generator) generate(writer io.Writer) {
 	g.setting()
-	t := template.Must(template.New("tmpl").Parse(tmpl))
+	funcMap := template.FuncMap{
+		"Parse": func(field, fieldType string) string {
+			fn := ".Int()"
+			switch fieldType {
+			case "int":
+			case "int64":
+				fn = ".Int64()"
+			default:
+				panic("invalid types")
+			}
+			return field + fn
+		},
+	}
+	t := template.Must(template.New("tmpl").Funcs(funcMap).Parse(tmpl))
 
 	err := t.Execute(writer, g)
 
