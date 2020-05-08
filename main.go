@@ -137,7 +137,6 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		}
 
 		_, err = tags.Get("datastore_key")
-
 		if err != nil {
 			f := func() string {
 				u := uppercaseExtraction(name)
@@ -149,7 +148,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				}
 				return u
 			}
-			field := &FieldInfo{
+			fieldInfo := &FieldInfo{
 				Field:     name,
 				FieldType: getTypeName(field.Type),
 				Indexes:   make([]*IndexesInfo, 0),
@@ -161,17 +160,17 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				fieldInfo.DsTag = strings.Split(dsTag.Value(), ",")[0]
 			}
 			ft, err := tags.Get("filter")
-			if err != nil || field.FieldType != "string" {
+			if err != nil || fieldInfo.FieldType != "string" {
 				idx := &IndexesInfo{
 					ConstName: filedLabel + name,
 					Label:     f(),
 					Method:    "Add",
 				}
 				idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
-				if field.FieldType != "string" {
+				if fieldInfo.FieldType != "string" {
 					idx.Method += "Something"
 				}
-				field.Indexes = append(field.Indexes, idx)
+				fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
 			} else {
 				filters := strings.Split(ft.Value(), ",")
 				for _, fil := range filters {
@@ -198,11 +197,11 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 					default:
 						continue
 					}
-					field.Indexes = append(field.Indexes, idx)
+					fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
 				}
 			}
 
-			gen.FieldInfos = append(gen.FieldInfos, field)
+			gen.FieldInfos = append(gen.FieldInfos, fieldInfo)
 			continue
 		}
 
