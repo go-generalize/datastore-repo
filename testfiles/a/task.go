@@ -5,6 +5,7 @@ import (
 )
 
 //go:generate repo_generator Task github.com/go-generalize/repo_generator/testfiles/a
+//go:generate gofmt -w ./
 
 type Task struct {
 	Desc    string    `datastore:"description"`
