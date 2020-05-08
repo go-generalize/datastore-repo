@@ -7,17 +7,30 @@ import (
 )
 
 type IndexesInfo struct {
-	Comment    string
-	Field      string
-	Label      string
-	SearchItem string // TODO `前方一致` や `部分一致` など (5/7 unused)
+	Comment   string
+	ConstName string
+	Label     string
+	Method    string
+}
+
+type FieldInfo struct {
+	Field     string
+	FieldType string
+	Indexes   []*IndexesInfo
+}
+
+type ImportInfo struct {
+	Name string
 }
 
 type generator struct {
 	PackageName       string
+	ImportName        string
+	ImportList        []ImportInfo
 	GeneratedFileName string
 	FileName          string
 	StructName        string
+	LowerStructName   string
 
 	GoGenerate              string
 	RepositoryStructName    string
@@ -28,10 +41,14 @@ type generator struct {
 
 	KeyValueName string // lower camel case
 
-	ConstMapForIndexes []IndexesInfo
+	FieldInfos []*FieldInfo
+
+	EnableIndexes   bool
+	BoolCriteriaCnt int
 }
 
 func (g *generator) setting() {
+	g.ImportName = ImportName
 	g.GoGenerate = "go:generate"
 	g.RepositoryInterfaceName = g.StructName + "Repository"
 	g.setRepositoryStructName()
@@ -81,9 +98,8 @@ func (g *generator) generate(writer io.Writer) {
 	}
 }
 
-func (g *generator) generateConstant(writer io.Writer) {
-	g.setting()
-	t := template.Must(template.New("tmpl").Parse(tmplConst))
+func (g *generator) generateLabel(writer io.Writer) {
+	t := template.Must(template.New("tmplLabel").Parse(tmplLabel))
 
 	err := t.Execute(writer, g)
 
@@ -92,13 +108,65 @@ func (g *generator) generateConstant(writer io.Writer) {
 	}
 }
 
-const tmplConst = `// THIS FILE IS A GENERATED CODE. EDIT OK
+func (g *generator) generateConstant(writer io.Writer) {
+	t := template.Must(template.New("tmplConst").Parse(tmplConst))
+
+	err := t.Execute(writer, g)
+
+	if err != nil {
+		log.Printf("failed to execute template: %+v", err)
+	}
+}
+
+const tmplConst = `// THIS FILE IS A GENERATED CODE. DO NOT EDIT
+package configs
+
+import "strconv"
+
+type BoolCriteria string
+
+const (
+	BoolCriteriaEmpty BoolCriteria = ""
+	BoolCriteriaTrue  BoolCriteria = "true"
+	BoolCriteriaFalse BoolCriteria = "false"
+)
+
+func (src BoolCriteria) Bool() bool {
+	return src == BoolCriteriaTrue
+}
+
+type IntegerCriteria string
+
+const (
+	IntegerCriteriaEmpty IntegerCriteria = ""
+)
+
+func (str IntegerCriteria) Int() int {
+	i32, err := strconv.Atoi(string(str))
+	if err != nil {
+		return -1
+	}
+	return i32
+}
+
+func (str IntegerCriteria) Int64() int64 {
+	i64, err := strconv.ParseInt(string(str), 10, 64)
+	if err != nil {
+		return -1
+	}
+	return i64
+}
+`
+
+const tmplLabel = `// THIS FILE IS A GENERATED CODE. EDIT OK
 package configs
 
 const (
-{{- range .ConstMapForIndexes }}
-	// {{ .Comment }}検索用ラベル
-	{{ .Field }} = "{{ .Label }}"
+{{- range $fi := .FieldInfos }}
+	{{- range $idx := $fi.Indexes }}
+	// {{ $idx.Comment }}検索用ラベル
+	{{ $idx.ConstName }} = "{{ $idx.Label }}"
+	{{- end }}
 {{- end }}
 )
 `
@@ -114,6 +182,7 @@ import (
 {{- end }}
 
 	"cloud.google.com/go/datastore"
+	"{{ .ImportName }}/configs"
 	"golang.org/x/xerrors"
 )
 
@@ -127,11 +196,15 @@ type {{ .RepositoryInterfaceName }} interface {
 	Delete(ctx context.Context, subject *{{ .StructName }}) error
 	DeleteBy{{ .KeyFieldName }}(ctx context.Context, {{ .KeyValueName }} {{ .KeyFieldType }}) error
 	// Multiple
-	GetMulti(ctx context.Context, {{.KeyValueName}}s []{{.KeyFieldType}}) ([]*{{.StructName}}, error)
-	InsertMulti(ctx context.Context, subjects []*{{.StructName}}) ([]{{.KeyFieldType}}, error)
-	UpdateMulti(ctx context.Context, subjects []*{{.StructName}}) error
-	DeleteMulti(ctx context.Context, subjects []*{{.StructName}}) error
-	DeleteMultiBy{{.KeyFieldName}}s(ctx context.Context, {{.KeyValueName}}s []{{.KeyFieldType}}) error
+	GetMulti(ctx context.Context, {{ .KeyValueName }}s []{{ .KeyFieldType }}) ([]*{{ .StructName }}, error)
+	InsertMulti(ctx context.Context, subjects []*{{ .StructName }}) ([]{{ .KeyFieldType }}, error)
+	UpdateMulti(ctx context.Context, subjects []*{{ .StructName }}) error
+	DeleteMulti(ctx context.Context, subjects []*{{ .StructName }}) error
+	DeleteMultiBy{{ .KeyFieldName }}s(ctx context.Context, {{ .KeyValueName }}s []{{ .KeyFieldType }}) error
+	// List
+	List(ctx context.Context, req *{{ .StructName }}ListReq, q *datastore.Query) ([]*{{ .StructName }}, error)
+	// misc
+	GetKindName() string
 }
 
 type {{ .RepositoryStructName }} struct {
@@ -146,7 +219,12 @@ func New{{ .RepositoryInterfaceName }}(datastoreClient *datastore.Client) {{ .Re
 	}
 }
 
-func (repo *{{.RepositoryStructName}}) getKeys(subjects ...*{{.StructName}}) ([]*datastore.Key, error) {
+func (repo *{{ .RepositoryStructName }}) GetKindName() string {
+	return repo.kind
+}
+
+// getKeys Entityからkeyを取得する
+func (repo *{{ .RepositoryStructName }}) getKeys(subjects ...*{{ .StructName }}) ([]*datastore.Key, error) {
 	keys := make([]*datastore.Key, 0, len(subjects))
 	for _, subject := range subjects {
 		key	:= subject.{{ .KeyFieldName }}
@@ -169,6 +247,137 @@ func (repo *{{.RepositoryStructName}}) getKeys(subjects ...*{{.StructName}}) ([]
 	}
 
 	return keys, nil
+}
+{{ if eq .EnableIndexes true }}
+// saveIndexes 拡張フィルタを保存する
+func (repo *{{ .RepositoryStructName }}) saveIndexes(subjects ...*{{ .StructName }}) error {
+	for _, subject := range subjects {
+		idx := xian.NewIndexes({{ .LowerStructName }}IndexesConfig)
+{{- range $fi := .FieldInfos }}
+{{- range $idx := $fi.Indexes }}
+{{- if eq $fi.FieldType "bool" }}
+		idx.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }})
+{{- else if eq $fi.FieldType "string" }}
+{{- if eq $idx.Method "AddPrefix" }}
+		idx.{{ $idx.Method }}es(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }})
+{{- else }}
+		idx.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }})
+{{- end }}
+{{- else if eq $fi.FieldType "int" }}
+		idx.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }})
+{{- else if eq $fi.FieldType "time.Time" }}
+		idx.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, subject.{{ $fi.Field }}.Unix())
+{{- end }}
+{{- end }}
+{{- end }}
+		built, err := idx.Build()
+		if err != nil {
+			return err
+		}
+		subject.Indexes = built
+	}
+
+	return nil
+}
+
+var {{ .LowerStructName }}IndexesConfig = &xian.Config{
+	IgnoreCase:         true, // Case insensitive
+	SaveNoFiltersIndex: true, // https://qiita.com/hogedigo/items/02dcce80f6197faae1fb#savenofiltersindex
+}
+{{- end }}
+
+// {{ .StructName }}ListReq List取得時に渡すリクエスト
+// └─ bool/int(64) は stringで渡す(configs.BoolCriteria | configs.IntegerCriteria)
+type {{ .StructName }}ListReq struct {
+{{- range .FieldInfos }}
+{{- if eq .FieldType "bool" }}
+	{{ .Field }} configs.BoolCriteria
+{{- else if or (eq .FieldType "int") (eq .FieldType "int64") }}
+	{{ .Field }} configs.IntegerCriteria
+{{- else }}
+	{{ .Field }} {{ .FieldType }}
+{{- end }}
+{{- end }}
+}
+
+// List datastore.Queryを使用し条件抽出をする
+// └─ 第3引数はNOT/OR/IN/RANGEなど、より複雑な条件を適用したいときにつける
+//    └─ 基本的にnilを渡せば良い
+// BUG(54mch4n) 潜在的なバグがあるかもしれない
+func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .StructName }}ListReq, q *datastore.Query) ([]*{{ .StructName }}, error) {
+	if q == nil {
+		q = datastore.NewQuery(repo.kind)
+	}
+{{ $Enable := .EnableIndexes }}
+{{- if eq $Enable true }}
+	filters := xian.NewFilters({{ .LowerStructName }}IndexesConfig)
+{{- end }}
+{{- range $fi := .FieldInfos }}
+{{- if eq $fi.FieldType "bool" }}
+	if req.{{ $fi.Field }} != "" {
+{{- if eq $Enable true }}
+{{- range $idx := $fi.Indexes }}
+		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }})
+{{- end }}
+{{- else }}
+		q = q.Filter("{{ $fi.Field }}", req.{{ $fi.Field }}.Bool())
+{{- end }}
+	}
+{{- else if eq $fi.FieldType "string" }}
+	if req.{{ $fi.Field }} != "" {
+{{- if eq $Enable true }}
+{{- range $idx := $fi.Indexes }}
+		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }})
+{{- end }}
+{{- else }}
+		q = q.Filter("{{ $fi.Field }}", req.{{ $fi.Field }})
+{{- end }}
+	}
+{{- else if or (eq $fi.FieldType "int") (eq $fi.FieldType "int64") }}
+	if req.{{ $fi.Field }} != configs.IntegerCriteriaEmpty {
+{{- if eq $Enable true }}
+{{- range $idx := $fi.Indexes }}
+		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ Parse $fi.Field $fi.FieldType }})
+{{- end }}
+{{- else }}
+		q = q.Filter("{{ $fi.Field }}", req.{{ Parse $fi.Field $fi.FieldType }})
+{{- end }}
+	}
+{{- else if eq $fi.FieldType "time.Time" }}
+	if !req.{{ $fi.Field }}.IsZero() {
+{{- if eq $Enable true }}
+{{- range $idx := $fi.Indexes }}
+		filters.{{ $idx.Method }}(configs.{{ $idx.ConstName }}, req.{{ $fi.Field }}.Unix())
+{{- end }}
+{{- else }}
+		q = q.Filter("{{ $fi.Field }}", req.{{ $fi.Field }})
+{{- end }}
+	}
+{{- end }}
+{{- end }}
+{{ if eq $Enable true }}
+	built, err := filters.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range built {
+		q = q.Filter("Indexes =", f)
+	}
+{{- end }}
+	subjects := make([]*{{ .StructName }}, 0)
+	keys, err := repo.datastoreClient.GetAll(ctx, q, &subjects)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, k := range keys {
+		if k != nil {
+			subjects[i].ID = k.ID
+		}
+	}
+
+	return subjects, nil
 }
 
 func (repo *{{ .RepositoryStructName }}) Get(ctx context.Context, {{ .KeyValueName }} {{ .KeyFieldType }}) (*{{ .StructName }}, error) {
@@ -206,7 +415,11 @@ func (repo *{{ .RepositoryStructName }}) Insert(ctx context.Context, subject *{{
 	if err != nil {
 		return zero, xerrors.Errorf("error in getKeys method: %w", err)
 	}
-
+{{ if eq .EnableIndexes true }}
+	if err := repo.saveIndexes(subject); err != nil {
+		return zero, xerrors.Errorf("error in saveIndexes method: %w", err)
+	}
+{{ end }}
 	key, err := repo.datastoreClient.Put(ctx, keys[0], subject)
 	if err != nil {
 		return zero, err
@@ -229,7 +442,11 @@ func (repo *{{ .RepositoryStructName }}) Update(ctx context.Context, subject *{{
 	if err != nil {
 		return xerrors.Errorf("error in getKeys method: %w", err)
 	}
-
+{{ if eq .EnableIndexes true }}
+	if err := repo.saveIndexes(subject); err != nil {
+		return xerrors.Errorf("error in saveIndexes method: %w", err)
+	}
+{{ end }}
 	if _, err := repo.datastoreClient.Put(ctx, keys[0], subject); err != nil {
 		return err
 	}
@@ -311,7 +528,11 @@ func (repo *{{ .RepositoryStructName }}) InsertMulti(ctx context.Context, subjec
 	if len(subjects) != cnt {
 		return nil, xerrors.Errorf("already exist. (%d)", len(subjects)-cnt)
 	}
-
+{{ if eq .EnableIndexes true }}
+	if err := repo.saveIndexes(subjects...); err != nil {
+		return nil, xerrors.Errorf("error in saveIndexes method: %w", err)
+	}
+{{ end }}
 	resKeys, err := repo.datastoreClient.PutMulti(ctx, keys, subjects)
 	if err != nil {
 		return nil, err
@@ -344,7 +565,11 @@ func (repo *{{ .RepositoryStructName }}) UpdateMulti(ctx context.Context, subjec
 			return err
 		}
 	}
-
+{{ if eq .EnableIndexes true }}
+	if err := repo.saveIndexes(subjects...); err != nil {
+		return xerrors.Errorf("error in saveIndexes method: %w", err)
+	}
+{{ end }}
 	_, err = repo.datastoreClient.PutMulti(ctx, keys, subjects)
 	if err != nil {
 		return err

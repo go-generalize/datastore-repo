@@ -15,12 +15,16 @@ import (
 	"golang.org/x/xerrors"
 )
 
+var ImportName string
+
 func main() {
 	l := len(os.Args)
-	if l < 2 {
+	if l < 3 {
 		fmt.Println("You have to specify the struct name of target")
 		os.Exit(1)
 	}
+
+	ImportName = os.Args[2]
 
 	if err := run(os.Args[1]); err != nil {
 		log.Fatal(err.Error())
@@ -79,6 +83,7 @@ func traverse(pkg *ast.Package, fs *token.FileSet, structName string) error {
 					continue
 				}
 				gen.StructName = name
+				gen.LowerStructName = strcase.ToLowerCamel(name)
 
 				return generate(gen, fs, structType)
 			}
@@ -126,22 +131,72 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			continue
 		}
 
+		if name == "Indexes" {
+			gen.EnableIndexes = true
+			continue
+		}
+
 		_, err = tags.Get("datastore_key")
 
 		if err != nil {
-			u := uppercaseExtraction(name)
-			if _, ok := dupMap[u]; !ok {
-				dupMap[u] = 1
+			f := func() string {
+				u := uppercaseExtraction(name)
+				if _, ok := dupMap[u]; !ok {
+					dupMap[u] = 1
+				} else {
+					dupMap[u]++
+					u = fmt.Sprintf("%s%d", u, dupMap[u])
+				}
+				return u
+			}
+			field := &FieldInfo{
+				Field:     name,
+				FieldType: getTypeName(field.Type),
+				Indexes:   make([]*IndexesInfo, 0),
+			}
+			ft, err := tags.Get("filter")
+			if err != nil || field.FieldType != "string" {
+				idx := &IndexesInfo{
+					ConstName: filedLabel + name,
+					Label:     f(),
+					Method:    "Add",
+				}
+				idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
+				if field.FieldType != "string" {
+					idx.Method += "Something"
+				}
+				field.Indexes = append(field.Indexes, idx)
 			} else {
-				dupMap[u]++
-				u = fmt.Sprintf("%s%d", u, dupMap[u])
+				filters := strings.Split(ft.Value(), ",")
+				for _, fil := range filters {
+					idx := &IndexesInfo{
+						ConstName: filedLabel + name,
+						Label:     f(),
+						Method:    "Add",
+					}
+					switch fil {
+					case "p", "prefix": // 前方一致 (AddPrefix)
+						idx.Method += "Prefix"
+						idx.ConstName += "Prefix"
+						idx.Comment = fmt.Sprintf("%s %s前方一致", idx.ConstName, name)
+					case "s", "suffix": /* TODO 後方一致
+						idx.Method += "Suffix"
+						idx.ConstName += "Suffix"
+						idx.Comment = fmt.Sprintf("%s %s後方一致", idx.ConstName, name)*/
+					case "m", "matching": // 完全一致 (Add) Default
+						idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
+					case "l", "like": // 部分一致
+						idx.Method += "Biunigrams"
+						idx.ConstName += "Like"
+						idx.Comment = fmt.Sprintf("%s %s部分一致", idx.ConstName, name)
+					default:
+						continue
+					}
+					field.Indexes = append(field.Indexes, idx)
+				}
 			}
-			idx := IndexesInfo{
-				Field: filedLabel + name,
-				Label: u,
-			}
-			idx.Comment = fmt.Sprintf("%s %s", idx.Field, name) // TODO `前方一致` や `部分一致` など
-			gen.ConstMapForIndexes = append(gen.ConstMapForIndexes, idx)
+
+			gen.FieldInfos = append(gen.FieldInfos, field)
 			continue
 		}
 
@@ -184,8 +239,17 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				return err
 			}
 		}
-		path := "configs/" + strcase.ToLowerCamel(gen.StructName) + "_const.go"
+		path := "configs/" + strcase.ToLowerCamel(gen.StructName) + "_label.go"
 		fp, err := os.Create(path)
+		if err != nil {
+			panic(err)
+		}
+		defer fp.Close()
+		gen.generateLabel(fp)
+	}
+
+	{
+		fp, err := os.Create("configs/constant.go")
 		if err != nil {
 			panic(err)
 		}
