@@ -213,6 +213,7 @@ type {{ .RepositoryStructName }} struct {
 	datastoreClient *datastore.Client
 }
 
+// New{{ .RepositoryInterfaceName }} constructor
 func New{{ .RepositoryInterfaceName }}(datastoreClient *datastore.Client) {{ .RepositoryInterfaceName }} {
 	return &{{ .RepositoryStructName }}{
 		kind:            "{{ .StructName }}",
@@ -220,6 +221,7 @@ func New{{ .RepositoryInterfaceName }}(datastoreClient *datastore.Client) {{ .Re
 	}
 }
 
+// GetKindName KindName getter
 func (repo *{{ .RepositoryStructName }}) GetKindName() string {
 	return repo.kind
 }
@@ -281,9 +283,15 @@ func (repo *{{ .RepositoryStructName }}) saveIndexes(subjects ...*{{ .StructName
 	return nil
 }
 
-var {{ .LowerStructName }}IndexesConfig = &xian.Config{
-	IgnoreCase:         true, // Case insensitive
-	SaveNoFiltersIndex: true, // https://qiita.com/hogedigo/items/02dcce80f6197faae1fb#savenofiltersindex
+// {{ .StructName }}IndexesConfig {{ .StructName }}用のIndexesConfigを設定する
+var {{ .StructName }}IndexesConfig = &xian.Config{
+	// IgnoreCase Case insensitive
+	//   └──大文字小文字を区別しない
+	IgnoreCase:         true,
+	// SaveNoFiltersIndex 検索時にフィルタを設定しない場合、この拡張フィルタなし検索用インデックスのEquality Filterが自動で適用される
+	//   ├── falseで、拡張フィルタのあり・なしの両パターンの検索がある場合、カスタムインデックスを両パターン分用意しておく必要がある
+	//   └── trueにしておくことでカスタムインデックスを半分に節約することができる
+	SaveNoFiltersIndex: true,
 }
 {{- end }}
 
@@ -302,8 +310,8 @@ type {{ .StructName }}ListReq struct {
 }
 
 // List datastore.Queryを使用し条件抽出をする
-// └─ 第3引数はNOT/OR/IN/RANGEなど、より複雑な条件を適用したいときにつける
-//    └─ 基本的にnilを渡せば良い
+//  └─ 第3引数はNOT/OR/IN/RANGEなど、より複雑な条件を適用したいときにつける
+//      └─ 基本的にnilを渡せば良い
 // BUG(54mch4n) 潜在的なバグがあるかもしれない
 func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .StructName }}ListReq, q *datastore.Query) ([]*{{ .StructName }}, error) {
 	if q == nil {
@@ -381,6 +389,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	return subjects, nil
 }
 
+// Get 処理中の {{ .StructName }} の取得処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) Get(ctx context.Context, {{ .KeyValueName }} {{ .KeyFieldType }}) (*{{ .StructName }}, error) {
 {{- if eq .KeyFieldType "int64" }}
 	key := datastore.IDKey(repo.kind, {{ .KeyValueName }}, nil)
@@ -404,6 +413,7 @@ func (repo *{{ .RepositoryStructName }}) Get(ctx context.Context, {{ .KeyValueNa
 	return subject, nil
 }
 
+// Insert 処理中の {{ .StructName }} の登録処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) Insert(ctx context.Context, subject *{{ .StructName }}) ({{ .KeyFieldType }}, error) {
 {{- if eq .KeyFieldType "int64" }}
 	zero := int64(0)
@@ -434,6 +444,7 @@ func (repo *{{ .RepositoryStructName }}) Insert(ctx context.Context, subject *{{
 {{- end }}
 }
 
+// Update 処理中の {{ .StructName }} の更新処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) Update(ctx context.Context, subject *{{ .StructName }}) error {
 	if _, err := repo.Get(ctx, subject.{{ .KeyFieldName }}); err == datastore.ErrNoSuchEntity {
 		return err
@@ -455,6 +466,7 @@ func (repo *{{ .RepositoryStructName }}) Update(ctx context.Context, subject *{{
 	return nil
 }
 
+// Delete 処理中の {{ .StructName }} の削除処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) Delete(ctx context.Context, subject *{{ .StructName }}) error {
 	keys, err := repo.getKeys(subject)
 	if err != nil {
@@ -464,6 +476,7 @@ func (repo *{{ .RepositoryStructName }}) Delete(ctx context.Context, subject *{{
 	return repo.datastoreClient.Delete(ctx, keys[0])
 }
 
+// DeleteBy{{ .KeyFieldName }} 処理中の {{ .StructName }} の{{ .KeyFieldName }}から削除処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) DeleteBy{{ .KeyFieldName }}(ctx context.Context, {{ .KeyValueName }} {{ .KeyFieldType }}) error {
 {{- if eq .KeyFieldType "int64" }}
 	key := datastore.IDKey(repo.kind, {{ .KeyValueName }}, nil)
@@ -475,6 +488,7 @@ func (repo *{{ .RepositoryStructName }}) DeleteBy{{ .KeyFieldName }}(ctx context
 	return repo.datastoreClient.Delete(ctx, key)
 }
 
+// GetMulti 処理中の {{ .StructName }} の一括取得処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) GetMulti(ctx context.Context, {{ .KeyValueName }}s []{{ .KeyFieldType }}) ([]*{{ .StructName }}, error) {
 {{- if eq .KeyFieldType "int64" }}
 	keys := make([]*datastore.Key, 0, len({{ .KeyValueName }}s))
@@ -509,6 +523,7 @@ func (repo *{{ .RepositoryStructName }}) GetMulti(ctx context.Context, {{ .KeyVa
 	return vessels, err
 }
 
+// InsertMulti 処理中の {{ .StructName }} の一括挿入処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) InsertMulti(ctx context.Context, subjects []*{{ .StructName }}) ([]{{ .KeyFieldType }}, error) {
 	keys, err := repo.getKeys(subjects...)
 	if err != nil {
@@ -555,6 +570,7 @@ func (repo *{{ .RepositoryStructName }}) InsertMulti(ctx context.Context, subjec
 	return vessels, err
 }
 
+// UpdateMulti 処理中の {{ .StructName }} の一括更新処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) UpdateMulti(ctx context.Context, subjects []*{{ .StructName }}) error {
 	keys, err := repo.getKeys(subjects...)
 	if err != nil {
@@ -579,6 +595,7 @@ func (repo *{{ .RepositoryStructName }}) UpdateMulti(ctx context.Context, subjec
 	return nil
 }
 
+// DeleteMulti 処理中の {{ .StructName }} の一括削除処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) DeleteMulti(ctx context.Context, subjects []*{{ .StructName }}) error {
 	keys, err := repo.getKeys(subjects...)
 	if err != nil {
@@ -588,6 +605,7 @@ func (repo *{{ .RepositoryStructName }}) DeleteMulti(ctx context.Context, subjec
 	return repo.datastoreClient.DeleteMulti(ctx, keys)
 }
 
+// DeleteMultiBy{{ .KeyFieldName }}s 処理中の {{ .StructName }} の{{ .KeyFieldName }}群を元に一括削除処理一切の責任を持ち、これを行う
 func (repo *{{ .RepositoryStructName }}) DeleteMultiBy{{ .KeyFieldName }}s(ctx context.Context, {{ .KeyValueName }}s []{{ .KeyFieldType }}) error {
 {{- if eq .KeyFieldType "int64" }}
 	keys := make([]*datastore.Key, 0, len({{ .KeyValueName }}s))
