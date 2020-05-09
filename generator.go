@@ -80,6 +80,8 @@ func (g *generator) generate(writer io.Writer) {
 			case typeInt:
 			case typeInt64:
 				fn = ".Int64()"
+			case typeFloat64:
+				fn = ".Float64()"
 			default:
 				panic("invalid types")
 			}
@@ -152,6 +154,14 @@ func (str IntegerCriteria) Int64() int64 {
 		return -1
 	}
 	return i64
+}
+
+func (str IntegerCriteria) Float64() float64 {
+	f64, err := strconv.ParseFloat(string(str), 64)
+	if err != nil {
+		return -1
+	}
+	return f64
 }
 `
 
@@ -257,7 +267,7 @@ func (repo *{{ .RepositoryStructName }}) saveIndexes(subjects ...*{{ .StructName
 		idx := xian.NewIndexes({{ .StructName }}IndexesConfig)
 {{- range $fi := .FieldInfos }}
 {{- range $idx := $fi.Indexes }}
-{{- if eq $fi.FieldType "bool" }}
+{{- if or (eq $fi.FieldType "bool") (eq $fi.FieldType "int" ) (eq $fi.FieldType "int64" ) (eq $fi.FieldType "float64" ) }}
 		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }})
 {{- else if eq $fi.FieldType "string" }}
 {{- if eq $idx.Method "AddPrefix" }}
@@ -265,8 +275,6 @@ func (repo *{{ .RepositoryStructName }}) saveIndexes(subjects ...*{{ .StructName
 {{- else }}
 		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }})
 {{- end }}
-{{- else if eq $fi.FieldType "int" }}
-		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }})
 {{- else if eq $fi.FieldType "time.Time" }}
 		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }}.Unix())
 {{- end }}
@@ -300,7 +308,7 @@ type {{ .StructName }}ListReq struct {
 {{- range .FieldInfos }}
 {{- if eq .FieldType "bool" }}
 	{{ .Field }} BoolCriteria
-{{- else if or (eq .FieldType "int") (eq .FieldType "int64") }}
+{{- else if or (eq .FieldType "int") (eq .FieldType "int64") (eq .FieldType "float64" ) }}
 	{{ .Field }} IntegerCriteria
 {{- else }}
 	{{ .Field }} {{ .FieldType }}
@@ -341,7 +349,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }})
 {{- end }}
 	}
-{{- else if or (eq $fi.FieldType "int") (eq $fi.FieldType "int64") }}
+{{- else if or (eq $fi.FieldType "int") (eq $fi.FieldType "int64") (eq $fi.FieldType "float64" ) }}
 	if req.{{ $fi.Field }} != IntegerCriteriaEmpty {
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}

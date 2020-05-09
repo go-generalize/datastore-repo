@@ -99,12 +99,13 @@ func uppercaseExtraction(name string) (lower string) {
 }
 
 const (
-	biunigrams = "Biunigrams"
-	prefix     = "Prefix"
-	queryLabel = "QueryLabel"
-	typeString = "string"
-	typeInt    = "int"
-	typeInt64  = "int64"
+	biunigrams  = "Biunigrams"
+	prefix      = "Prefix"
+	queryLabel  = "QueryLabel"
+	typeString  = "string"
+	typeInt     = "int"
+	typeInt64   = "int64"
+	typeFloat64 = "float64"
 )
 
 var valueCheck = regexp.MustCompile("^[0-9a-zA-Z_]+$")
