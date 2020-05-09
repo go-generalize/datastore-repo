@@ -32,7 +32,6 @@ type generator struct {
 	FileName          string
 	StructName        string
 
-	GoGenerate              string
 	RepositoryStructName    string
 	RepositoryInterfaceName string
 
@@ -48,7 +47,6 @@ type generator struct {
 }
 
 func (g *generator) setting() {
-	g.GoGenerate = "go:generate"
 	g.RepositoryInterfaceName = g.StructName + "Repository"
 	g.setRepositoryStructName()
 	g.buildConditions()
@@ -187,7 +185,8 @@ import (
 	"golang.org/x/xerrors"
 )
 
-//{{ .GoGenerate }} mockgen -source {{ .GeneratedFileName }}.go -destination mock_{{ .GeneratedFileName }}/mock_{{ .GeneratedFileName }}.go
+{{ $generate := "go:generate" }}
+//{{ $generate }} mockgen -source {{ .GeneratedFileName }}.go -destination mock_{{ .GeneratedFileName }}/mock_{{ .GeneratedFileName }}.go
 
 type {{ .RepositoryInterfaceName }} interface {
 	// Single
