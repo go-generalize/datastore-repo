@@ -106,6 +106,8 @@ const (
 	typeInt64  = "int64"
 )
 
+var valueCheck = regexp.MustCompile("^[0-9a-zA-Z_]+$")
+
 func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) error {
 	var (
 		tags *structtag.Tags
@@ -270,4 +272,18 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 	}
 
 	return nil
+}
+
+func tagCheck(pos string, tags *structtag.Tags) (string, error) {
+	if dsTag, err := tags.Get("datastore"); err == nil {
+		tag := strings.Split(dsTag.Value(), ",")[0]
+		if !valueCheck.MatchString(tag) { // 空白と記号チェック
+			return "", xerrors.Errorf("%s: key field for datastore should have other than blanks and symbols tag", pos)
+		}
+		if strings.Contains("0123456789", string(tag[0])) {
+			return "", xerrors.Errorf("%s: key field for datastore should have prefix other than numbers required", pos)
+		}
+		return tag, nil
+	}
+	return "", nil
 }
