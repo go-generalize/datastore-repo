@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-//go:generate repo_generator Task github.com/go-generalize/repo_generator/testfiles/a
+//go:generate repo_generator Task
 //go:generate gofmt -w ./
 
 // Task 拡張インデックスなし
