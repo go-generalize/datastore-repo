@@ -38,13 +38,13 @@ type generator struct {
 
 	KeyFieldName string
 	KeyFieldType string
-
 	KeyValueName string // lower camel case
 
 	FieldInfos []*FieldInfo
 
-	EnableIndexes   bool
-	BoolCriteriaCnt int
+	EnableIndexes       bool
+	FieldInfoForIndexes *FieldInfo
+	BoolCriteriaCnt     int
 }
 
 func (g *generator) setting() {
@@ -371,7 +371,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	}
 
 	for _, f := range built {
-		q = q.Filter("indexes =", f)
+		q = q.Filter("{{ .FieldInfoForIndexes.DsTag }} =", f)
 	}
 {{- end }}
 	subjects := make([]*{{ .StructName }}, 0)
