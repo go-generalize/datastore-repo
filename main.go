@@ -111,7 +111,29 @@ var valueCheck = regexp.MustCompile("^[0-9a-zA-Z_]+$")
 
 func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) error {
 	dupMap := make(map[string]int)
-	filedLabel := gen.StructName + queryLabel
+	f := func(name string) string {
+		u := uppercaseExtraction(name)
+		if _, ok := dupMap[u]; !ok {
+			dupMap[u] = 1
+		} else {
+			dupMap[u]++
+			u = fmt.Sprintf("%s%d", u, dupMap[u])
+		}
+		return u
+	}
+	fieldLabel := gen.StructName + queryLabel
+	appendIndexesInfo := func(fieldInfo *FieldInfo) {
+		idx := &IndexesInfo{
+			ConstName: fieldLabel + fieldInfo.Field,
+			Label:     f(fieldInfo.Field),
+			Method:    "Add",
+		}
+		idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, fieldInfo.Field)
+		if fieldInfo.FieldType != typeString {
+			idx.Method += "Something"
+		}
+		fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
+	}
 	for _, field := range structType.Fields.List {
 		// structの各fieldを調査
 		if len(field.Names) != 1 {
@@ -120,6 +142,14 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		name := field.Names[0].Name
 
 		if field.Tag == nil {
+			fieldInfo := &FieldInfo{
+				DsTag:     name,
+				Field:     name,
+				FieldType: getTypeName(field.Type),
+				Indexes:   make([]*IndexesInfo, 0),
+			}
+			appendIndexesInfo(fieldInfo)
+			gen.FieldInfos = append(gen.FieldInfos, fieldInfo)
 			continue
 		}
 
@@ -147,25 +177,13 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				gen.FieldInfoForIndexes = fieldInfo
 				continue
 			}
-
 			if _, err := tags.Get("datastore_key"); err != nil {
-				f := func() string {
-					u := uppercaseExtraction(name)
-					if _, ok := dupMap[u]; !ok {
-						dupMap[u] = 1
-					} else {
-						dupMap[u]++
-						u = fmt.Sprintf("%s%d", u, dupMap[u])
-					}
-					return u
-				}
 				fieldInfo := &FieldInfo{
 					DsTag:     name,
 					Field:     name,
 					FieldType: getTypeName(field.Type),
 					Indexes:   make([]*IndexesInfo, 0),
 				}
-
 				if tag, err := tagCheck(pos, tags); err != nil {
 					return xerrors.Errorf("error in tagCheck method: %w", err)
 				} else if tag != "" {
@@ -173,24 +191,14 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				}
 
 				if idr, err := tags.Get("indexer"); err != nil || fieldInfo.FieldType != typeString {
-					_ = err
-					idx := &IndexesInfo{
-						ConstName: filedLabel + name,
-						Label:     f(),
-						Method:    "Add",
-					}
-					idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
-					if fieldInfo.FieldType != typeString {
-						idx.Method += "Something"
-					}
-					fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
+					appendIndexesInfo(fieldInfo)
 				} else {
 					filters := strings.Split(idr.Value(), ",")
 					dupIdr := make(map[string]struct{})
 					for _, fil := range filters {
 						idx := &IndexesInfo{
-							ConstName: filedLabel + name,
-							Label:     f(),
+							ConstName: fieldLabel + name,
+							Label:     f(name),
 							Method:    "Add",
 						}
 						var dupFlag string
@@ -259,7 +267,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		gen.generate(fp)
 	}
 
-	{
+	if gen.EnableIndexes {
 		path := gen.FileName + "_label.go"
 		fp, err := os.Create(path)
 		if err != nil {
@@ -284,7 +292,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 func tagCheck(pos string, tags *structtag.Tags) (string, error) {
 	if dsTag, err := tags.Get("datastore"); err == nil {
 		tag := strings.Split(dsTag.Value(), ",")[0]
-		if !valueCheck.MatchString(tag) { // 空白と記号チェック
+		if !valueCheck.MatchString(tag) {
 			return "", xerrors.Errorf("%s: key field for datastore should have other than blanks and symbols tag", pos)
 		}
 		if strings.Contains("0123456789", string(tag[0])) {
