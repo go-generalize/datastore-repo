@@ -246,7 +246,6 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			}
 
 			gen.KeyValueName = strcase.ToLowerCamel(name)
-
 		}
 	}
 
