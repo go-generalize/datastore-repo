@@ -41,7 +41,7 @@ func compareTask(t *testing.T, expected, actual *task.Task) {
 		t.Fatalf("unexpected id: %d(expected: %d)", actual.ID, expected.ID)
 	}
 
-	if actual.Created != expected.Created {
+	if !actual.Created.Equal(expected.Created) {
 		t.Fatalf("unexpected time: %s(expected: %s)", actual.Created, expected.Created)
 	}
 
@@ -68,7 +68,7 @@ func TestDatastoreListTask(t *testing.T) {
 		}
 	}()
 
-	now := time.Unix(time.Now().Unix(), 0)
+	now := time.Now()
 	desc := "Hello, World!"
 
 	tks := make([]*task.Task, 0)
@@ -147,7 +147,7 @@ func TestDatastoreListNameWithIndexes(t *testing.T) {
 		}
 	}()
 
-	now := time.Unix(time.Now().Unix(), 0)
+	now := time.Now()
 	desc := "Hello, World!"
 	desc2 := "Prefix, Test!"
 
@@ -269,7 +269,7 @@ func TestDatastore(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	now := time.Unix(time.Now().Unix(), 0)
+	now := time.Now()
 	desc := "hello"
 
 	id, err := taskRepo.Insert(ctx, &task.Task{

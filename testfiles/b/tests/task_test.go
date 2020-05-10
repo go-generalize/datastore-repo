@@ -40,7 +40,7 @@ func compareTask(t *testing.T, expected, actual *task.Task) {
 		t.Fatalf("unexpected id: %s(expected: %s)", actual.ID, expected.ID)
 	}
 
-	if actual.Created != expected.Created {
+	if !actual.Created.Equal(expected.Created) {
 		t.Fatalf("unexpected time: %s(expected: %s)", actual.Created, expected.Created)
 	}
 
@@ -61,7 +61,7 @@ func TestDatastore(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	now := time.Unix(time.Now().Unix(), 0)
+	now := time.Now()
 	desc := "hello"
 
 	id, err := taskRepo.Insert(ctx, &task.Task{
