@@ -18,4 +18,5 @@ type Task struct {
 	Count64    int64        `datastore:"count64"`
 	Proportion float64      `datastore:"proportion"`
 	Flag       BoolCriteria `datastore:"flag" type:"string"` // If you want to use your unique type, set the original type to `type`
+	NameList   []string     `datastore:"nameList"`
 }

@@ -13,9 +13,10 @@ type Name struct {
 	Created time.Time `datastore:"created"`
 	// supported indexer tags word: e/equal(Default), l/like, p/prefix,
 	// TODO s/suffix
-	Desc    string   `datastore:"description" indexer:"l"`
-	Desc2   string   `datastore:"description2" indexer:"p"`
-	Done    bool     `datastore:"done"`
-	Count   int      `datastore:"count"`
-	Indexes []string `datastore:"indexes"`
+	Desc      string   `datastore:"description" indexer:"l"`
+	Desc2     string   `datastore:"description2" indexer:"p"`
+	Done      bool     `datastore:"done"`
+	Count     int      `datastore:"count"`
+	PriceList []int    `datastore:"priceList"`
+	Indexes   []string `datastore:"indexes"`
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"log"
+	"strings"
 	"text/template"
 )
 
@@ -86,6 +87,9 @@ func (g *generator) generate(writer io.Writer) {
 				panic("invalid types")
 			}
 			return field + fn
+		},
+		"HasPrefixSlice": func(types string) bool {
+			return strings.HasPrefix(types, "[]")
 		},
 	}
 	t := template.Must(template.New("tmpl").Funcs(funcMap).Parse(tmpl))
@@ -329,6 +333,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	filters := xian.NewFilters({{ .StructName }}IndexesConfig)
 {{- end }}
 {{- range $fi := .FieldInfos }}
+{{ $PrefixIsSlice := HasPrefixSlice $fi.FieldType}}
 {{- if eq $fi.FieldType "bool" }}
 	if req.{{ $fi.Field }} != "" {
 {{- if eq $Enable true }}
@@ -367,6 +372,18 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 {{- end }}
 {{- else }}
 		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }})
+{{- end }}
+	}
+{{- else if eq $PrefixIsSlice true }}
+	if len(req.{{ $fi.Field }}) > 0 {
+{{- if eq $Enable true }}
+{{- range $idx := $fi.Indexes }}
+		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ $fi.Field }})
+{{- end }}
+{{- else }}
+		for _, x := range req.{{ $fi.Field }} {
+			q = q.Filter("{{ $fi.DsTag }} =", x)
+		}
 {{- end }}
 	}
 {{- end }}
