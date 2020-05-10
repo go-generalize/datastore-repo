@@ -142,11 +142,13 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		}
 		name := field.Names[0].Name
 
+		typeName := getTypeName(field.Type)
+
 		if field.Tag == nil {
 			fieldInfo := &FieldInfo{
 				DsTag:     name,
 				Field:     name,
-				FieldType: getTypeName(field.Type),
+				FieldType: typeName,
 				Indexes:   make([]*IndexesInfo, 0),
 			}
 			appendIndexesInfo(fieldInfo)
@@ -168,7 +170,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				fieldInfo := &FieldInfo{
 					DsTag:     name,
 					Field:     name,
-					FieldType: getTypeName(field.Type),
+					FieldType: typeName,
 				}
 				if tag, err := tagCheck(pos, tags); err != nil {
 					return xerrors.Errorf("error in tagCheck method: %w", err)
@@ -182,7 +184,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				fieldInfo := &FieldInfo{
 					DsTag:     name,
 					Field:     name,
-					FieldType: getTypeName(field.Type),
+					FieldType: typeName,
 					Indexes:   make([]*IndexesInfo, 0),
 				}
 				if tag, err := tagCheck(pos, tags); err != nil {
@@ -246,7 +248,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			}
 
 			gen.KeyFieldName = name
-			gen.KeyFieldType = getTypeName(field.Type)
+			gen.KeyFieldType = typeName
 
 			if gen.KeyFieldType != typeInt64 &&
 				gen.KeyFieldType != typeString &&
