@@ -8,10 +8,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/fatih/structtag"
+	"github.com/go-utils/cont"
 	"github.com/iancoleman/strcase"
 	"golang.org/x/xerrors"
 )
@@ -89,52 +89,9 @@ func traverse(pkg *ast.Package, fs *token.FileSet, structName string) error {
 	return xerrors.Errorf("no such struct: %s", structName)
 }
 
-func uppercaseExtraction(name string) (lower string) {
-	for _, x := range name {
-		if 65 <= x && x <= 90 {
-			lower += string(x + 32)
-		}
-	}
-	return
-}
-
-const (
-	biunigrams  = "Biunigrams"
-	prefix      = "Prefix"
-	queryLabel  = "QueryLabel"
-	typeString  = "string"
-	typeInt     = "int"
-	typeInt64   = "int64"
-	typeFloat64 = "float64"
-)
-
-var valueCheck = regexp.MustCompile("^[0-9a-zA-Z_]+$")
-
 func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) error {
 	dupMap := make(map[string]int)
-	f := func(name string) string {
-		u := uppercaseExtraction(name)
-		if _, ok := dupMap[u]; !ok {
-			dupMap[u] = 1
-		} else {
-			dupMap[u]++
-			u = fmt.Sprintf("%s%d", u, dupMap[u])
-		}
-		return u
-	}
-	fieldLabel := gen.StructName + queryLabel
-	appendIndexesInfo := func(fieldInfo *FieldInfo) {
-		idx := &IndexesInfo{
-			ConstName: fieldLabel + fieldInfo.Field,
-			Label:     f(fieldInfo.Field),
-			Method:    "Add",
-		}
-		idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, fieldInfo.Field)
-		if fieldInfo.FieldType != typeString {
-			idx.Method += "Something"
-		}
-		fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
-	}
+	fieldLabel = gen.StructName + queryLabel
 	for _, field := range structType.Fields.List {
 		// structの各fieldを調査
 		if len(field.Names) != 1 {
@@ -142,7 +99,19 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 		}
 		name := field.Names[0].Name
 
-		typeName := getTypeName(field.Type)
+		pos := fs.Position(field.Pos()).String()
+
+		typeError := func(typeName string) {
+			log.Printf(
+				"%s: the type of `%s` is an invalid type in struct `%s` [%s]",
+				pos, name, gen.StructName, typeName,
+			)
+		}
+
+		typeName, continued := getTypeNameAndCheck(field, typeError)
+		if continued {
+			continue
+		}
 
 		if field.Tag == nil {
 			fieldInfo := &FieldInfo{
@@ -151,12 +120,10 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 				FieldType: typeName,
 				Indexes:   make([]*IndexesInfo, 0),
 			}
-			appendIndexesInfo(fieldInfo)
+			appendIndexesInfo(fieldInfo, dupMap)
 			gen.FieldInfos = append(gen.FieldInfos, fieldInfo)
 			continue
 		}
-
-		pos := fs.Position(field.Pos()).String()
 
 		if tags, err := structtag.Parse(strings.Trim(field.Tag.Value, "`")); err != nil {
 			log.Printf(
@@ -172,7 +139,7 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 					Field:     name,
 					FieldType: typeName,
 				}
-				if tag, err := tagCheck(pos, tags); err != nil {
+				if tag, err := dataStoreTagCheck(pos, tags); err != nil {
 					return xerrors.Errorf("error in tagCheck method: %w", err)
 				} else if tag != "" {
 					fieldInfo.DsTag = tag
@@ -187,21 +154,20 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 					FieldType: typeName,
 					Indexes:   make([]*IndexesInfo, 0),
 				}
-				if tag, err := tagCheck(pos, tags); err != nil {
+				if tag, err := dataStoreTagCheck(pos, tags); err != nil {
 					return xerrors.Errorf("error in tagCheck method: %w", err)
 				} else if tag != "" {
 					fieldInfo.DsTag = tag
 				}
-
 				if idr, err := tags.Get("indexer"); err != nil || fieldInfo.FieldType != typeString {
-					appendIndexesInfo(fieldInfo)
+					appendIndexesInfo(fieldInfo, dupMap)
 				} else {
 					filters := strings.Split(idr.Value(), ",")
 					dupIdr := make(map[string]struct{})
 					for _, fil := range filters {
 						idx := &IndexesInfo{
 							ConstName: fieldLabel + name,
-							Label:     f(name),
+							Label:     uppercaseExtraction(fieldInfo.Field, dupMap),
 							Method:    "Add",
 						}
 						var dupFlag string
@@ -292,7 +258,77 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 	return nil
 }
 
-func tagCheck(pos string, tags *structtag.Tags) (string, error) {
+func uppercaseExtraction(name string, dupMap map[string]int) (lower string) {
+	for _, x := range name {
+		if 65 <= x && x <= 90 {
+			lower += string(x + 32)
+		}
+	}
+	if _, ok := dupMap[lower]; !ok {
+		dupMap[lower] = 1
+	} else {
+		dupMap[lower]++
+		lower = fmt.Sprintf("%s%d", lower, dupMap[lower])
+	}
+	return
+}
+
+func appendIndexesInfo(fieldInfo *FieldInfo, dupMap map[string]int) {
+	idx := &IndexesInfo{
+		ConstName: fieldLabel + fieldInfo.Field,
+		Label:     uppercaseExtraction(fieldInfo.Field, dupMap),
+		Method:    "Add",
+	}
+	idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, fieldInfo.Field)
+	if fieldInfo.FieldType != typeString {
+		idx.Method += "Something"
+	}
+	fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
+}
+
+func getTypeNameAndCheck(field *ast.Field, f func(string)) (string, bool) {
+	typeName := getTypeName(field.Type)
+	if typeName == "*datastore.Key" {
+		return typeName, false
+	}
+	if !cont.Contains(supportType, typeName) {
+		s := typeName
+		var p string
+		if strings.HasPrefix(typeName, "[]") {
+			p = "[]"
+			s = typeName[2:]
+		}
+		if cont.Contains(supportType, s) {
+			typeName = p + s
+		} else {
+			if cont.Contains(builtInType, s) || field.Tag == nil {
+				f(typeName)
+				return "", true
+			} else {
+				tags, err := structtag.Parse(strings.Trim(field.Tag.Value, "`"))
+				if err != nil {
+					f(typeName)
+					return "", true
+				}
+				tag, err := tags.Get("type")
+				if err != nil {
+					f(typeName)
+					return "", true
+				}
+				val := tag.Value()
+				if cont.Contains(supportType, val) {
+					typeName = p + val
+				} else {
+					f(typeName)
+					return "", true
+				}
+			}
+		}
+	}
+	return typeName, false
+}
+
+func dataStoreTagCheck(pos string, tags *structtag.Tags) (string, error) {
 	if dsTag, err := tags.Get("datastore"); err == nil {
 		tag := strings.Split(dsTag.Value(), ",")[0]
 		if !valueCheck.MatchString(tag) {
