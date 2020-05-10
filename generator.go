@@ -303,7 +303,7 @@ var {{ .StructName }}IndexesConfig = &xian.Config{
 {{- end }}
 
 // {{ .StructName }}ListReq List取得時に渡すリクエスト
-// └─ bool/int(64) は stringで渡す(BoolCriteria | IntegerCriteria)
+// └─ bool/int(64)|float64 は stringで渡す(BoolCriteria | IntegerCriteria)
 type {{ .StructName }}ListReq struct {
 {{- range .FieldInfos }}
 {{- if eq .FieldType "bool" }}
