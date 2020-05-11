@@ -48,6 +48,26 @@ func getDatastoreAlias(inspect *inspector.Inspector) string {
 	return alias
 }
 
+func hasDatastoreKeyTag(lit *ast.BasicLit) bool {
+	if lit == nil {
+		return false
+	}
+
+	tags, err := structtag.Parse(strings.Trim(lit.Value, "`"))
+
+	if err != nil {
+		return false
+	}
+
+	_, err = tags.Get("datastore_key")
+
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
 func hasDatastoreTag(lit *ast.BasicLit) bool {
 	if lit == nil {
 		return false
@@ -72,6 +92,58 @@ func hasDatastoreTag(lit *ast.BasicLit) bool {
 	return true
 }
 
+func expectDatastoreKey(field *ast.Field, dspkg string) bool {
+	stared, ok := field.Type.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+
+	ident, ok := stared.X.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+
+	x, ok := ident.X.(*ast.Ident)
+
+	if !ok {
+		return false
+	}
+
+	if x.Name != dspkg || ident.Sel.Name != "Key" {
+		return false
+	}
+
+	return true
+}
+
+func expectString(field *ast.Field) bool {
+	ident, ok := field.Type.(*ast.Ident)
+
+	if !ok {
+		return false
+	}
+
+	if ident.Name != "string" {
+		return false
+	}
+
+	return true
+}
+
+func expectInt64(field *ast.Field) bool {
+	ident, ok := field.Type.(*ast.Ident)
+
+	if !ok {
+		return false
+	}
+
+	if ident.Name != "int64" {
+		return false
+	}
+
+	return true
+}
+
 func runOnFile(pass *analysis.Pass, file *ast.File) {
 	inspect := inspector.New([]*ast.File{file})
 
@@ -84,30 +156,28 @@ func runOnFile(pass *analysis.Pass, file *ast.File) {
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
 		strc := n.(*ast.StructType)
 
+		datastoreKeyTag := false
+
 		for _, field := range strc.Fields.List {
-			stared, ok := field.Type.(*ast.StarExpr)
-			if !ok {
+			if !hasDatastoreKeyTag(field.Tag) {
 				continue
 			}
 
-			ident, ok := stared.X.(*ast.SelectorExpr)
-			if !ok {
-				continue
-			}
-
-			x, ok := ident.X.(*ast.Ident)
-
-			if !ok {
-				continue
-			}
-
-			if x.Name != dspkg || ident.Sel.Name != "Key" {
-				continue
-			}
+			datastoreKeyTag = true
 
 			if !hasDatastoreTag(field.Tag) {
-				pass.Reportf(field.Pos(), `*datastore.Key should have datastore:"-" tag`)
+				pass.Reportf(field.Pos(), `datastore key should have datastore:"" tag`)
 			}
+
+			if !(expectDatastoreKey(field, dspkg) ||
+				expectString(field) ||
+				expectInt64(field)) {
+				pass.Reportf(field.Pos(), `available types for datastore key is *datastore.Key, string, int64`)
+			}
+		}
+
+		if !datastoreKeyTag {
+			pass.Reportf(n.Pos(), `struct for datastore should have a field for the key`)
 		}
 	})
 }
