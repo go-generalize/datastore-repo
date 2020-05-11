@@ -82,7 +82,7 @@ func TestDatastoreListTask(t *testing.T) {
 			Count:      int(i),
 			Count64:    0,
 			Proportion: 0.12345 + float64(i),
-			Flag:       task.BoolCriteriaTrue,
+			Flag:       task.Flag(true),
 			NameList:   []string{"a", "b", "c"},
 			//FlagList:   []task.BoolCriteria{task.BoolCriteriaTrue, task.BoolCriteriaFalse, task.BoolCriteriaFalse}, // TODO 独自型の対応
 		}
