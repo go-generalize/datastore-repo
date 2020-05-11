@@ -74,11 +74,17 @@ func TestDatastoreListTask(t *testing.T) {
 	tks := make([]*task.Task, 0)
 	for i := int64(1); i <= 10; i++ {
 		tk := &task.Task{
-			ID:      i * 100,
-			Created: now,
-			Desc:    fmt.Sprintf("%s%d", desc, i),
-			Done:    true,
-			Count:   int(i),
+			ID:         i * 100,
+			Desc:       fmt.Sprintf("%s%d", desc, i),
+			Created:    now,
+			Done:       true,
+			Done2:      false,
+			Count:      int(i),
+			Count64:    0,
+			Proportion: 0.12345 + float64(i),
+			Flag:       task.BoolCriteriaTrue,
+			NameList:   []string{"a", "b", "c"},
+			//FlagList:   []task.BoolCriteria{task.BoolCriteriaTrue, task.BoolCriteriaFalse, task.BoolCriteriaFalse}, // TODO 独自型の対応
 		}
 		tks = append(tks, tk)
 	}
@@ -90,6 +96,21 @@ func TestDatastoreListTask(t *testing.T) {
 	t.Run("int(1件)", func(t *testing.T) {
 		req := &task.TaskListReq{
 			Count: task.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
+		}
+
+		tasks, err := taskRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 1 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("float(1件)", func(t *testing.T) {
+		req := &task.TaskListReq{
+			Proportion: task.IntegerCriteria("1.12345"), // FIXME 2 この実装をどうにかしたい
 		}
 
 		tasks, err := taskRepo.List(ctx, req, nil)
@@ -131,6 +152,37 @@ func TestDatastoreListTask(t *testing.T) {
 			t.Fatal("not match")
 		}
 	})
+
+	t.Run("[]string(10件)", func(t *testing.T) {
+		req := &task.TaskListReq{
+			NameList: []string{"a", "b"},
+		}
+
+		tasks, err := taskRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 10 {
+			t.Fatal("not match")
+		}
+	})
+
+	// TODO 現状、独自型のスライスを許容できない
+	/* t.Run("[]task.BoolCriteria(10件)", func(t *testing.T) {
+		req := &task.TaskListReq{
+			FlagList: []task.BoolCriteria{task.BoolCriteriaTrue},
+		}
+
+		tasks, err := taskRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 10 {
+			t.Fatal("not match")
+		}
+	}) */
 }
 
 func TestDatastoreListNameWithIndexes(t *testing.T) {
@@ -154,12 +206,13 @@ func TestDatastoreListNameWithIndexes(t *testing.T) {
 	tks := make([]*task.Name, 0)
 	for i := int64(1); i <= 10; i++ {
 		tk := &task.Name{
-			ID:      i,
-			Created: now,
-			Desc:    fmt.Sprintf("%s%d", desc, i),
-			Desc2:   fmt.Sprintf("%s%d", desc2, i),
-			Done:    true,
-			Count:   int(i),
+			ID:        i,
+			Created:   now,
+			Desc:      fmt.Sprintf("%s%d", desc, i),
+			Desc2:     fmt.Sprintf("%s%d", desc2, i),
+			Done:      true,
+			Count:     int(i),
+			PriceList: []int{1, 2, 3, 4, 5},
 		}
 		tks = append(tks, tk)
 	}
@@ -248,6 +301,21 @@ func TestDatastoreListNameWithIndexes(t *testing.T) {
 	t.Run("time.Time(10件)", func(t *testing.T) {
 		req := &task.NameListReq{
 			Created: now,
+		}
+
+		tasks, err := nameRepo.List(ctx, req, nil)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+
+		if len(tasks) != 10 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("[]int(10件)", func(t *testing.T) {
+		req := &task.NameListReq{
+			PriceList: []int{1, 2, 3},
 		}
 
 		tasks, err := nameRepo.List(ctx, req, nil)
