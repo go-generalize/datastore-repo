@@ -76,22 +76,25 @@ func (g *generator) setRepositoryStructName() {
 func (g *generator) generate(writer io.Writer) {
 	g.setting()
 	funcMap := template.FuncMap{
-		"Parse": func(field, fieldType string) string {
-			fn := ".Int()"
+		"Parse": func(fieldType string) string {
+			if strings.HasPrefix(fieldType, "[]") {
+				fieldType = fieldType[2:]
+			}
+			fn := "Int"
 			switch fieldType {
 			case typeInt:
 			case typeInt64:
-				fn = ".Int64()"
+				fn = "Int64"
 			case typeFloat64:
-				fn = ".Float64()"
+				fn = "Float64"
 			case typeString:
-				fn = ".String()"
+				fn = "String"
 			case typeBool:
-				fn = ".Bool()"
+				fn = "Bool"
 			default:
 				panic("invalid types")
 			}
-			return field + fn
+			return fn
 		},
 		"HasPrefixSlice": func(types string) bool {
 			return strings.HasPrefix(types, "[]")
@@ -201,7 +204,7 @@ import (
 {{- if eq .EnableIndexes true }}
 	"github.com/knightso/xian"
 {{- end }}
-{{- if eq .SliceExist true }}
+{{- if and (eq .SliceExist true) (eq .EnableIndexes false) }}
 	"github.com/go-utils/dedupe"
 {{- end }}
 	"golang.org/x/xerrors"
@@ -278,6 +281,7 @@ func (repo *{{ .RepositoryStructName }}) saveIndexes(subjects ...*{{ .StructName
 	for _, subject := range subjects {
 		idx := xian.NewIndexes({{ .StructName }}IndexesConfig)
 {{- range $fi := .FieldInfos }}
+{{- $PrefixIsSlice := HasPrefixSlice $fi.FieldType}}
 {{- range $idx := $fi.Indexes }}
 {{- if or (eq $fi.FieldType "bool") (eq $fi.FieldType "int" ) (eq $fi.FieldType "int64" ) (eq $fi.FieldType "float64" ) }}
 		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }})
@@ -289,6 +293,8 @@ func (repo *{{ .RepositoryStructName }}) saveIndexes(subjects ...*{{ .StructName
 {{- end }}
 {{- else if eq $fi.FieldType "time.Time" }}
 		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }}.Unix())
+{{- else if eq $PrefixIsSlice true }}
+		idx.{{ $idx.Method }}({{ $idx.ConstName }}, subject.{{ $fi.Field }})
 {{- end }}
 {{- end }}
 {{- end }}
@@ -366,10 +372,10 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	if req.{{ $fi.Field }} != IntegerCriteriaEmpty {
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}
-		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ Parse $fi.Field $fi.FieldType }})
+		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ $fi.Field }}.{{ Parse $fi.FieldType }}())
 {{- end }}
 {{- else }}
-		q = q.Filter("{{ $fi.DsTag }} =", req.{{ Parse $fi.Field $fi.FieldType }})
+		q = q.Filter("{{ $fi.DsTag }} =", req.{{ $fi.Field }}.{{ Parse $fi.FieldType }}())
 {{- end }}
 	}
 {{- else if eq $fi.FieldType "time.Time" }}
@@ -384,14 +390,12 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	}
 {{- else if eq $PrefixIsSlice true }}
 	if len(req.{{ $fi.Field }}) > 0 {
-		if err := dedupe.Do(&req.{{ $fi.Field }}); err != nil {
-			return nil, xerrors.Errorf("error in dedupe.Do method: %w", err)
-		}
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}
 		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ $fi.Field }})
 {{- end }}
 {{- else }}
+		dedupe.Do(&req.{{ $fi.Field }})
 		for _, x := range req.{{ $fi.Field }} {
 			q = q.Filter("{{ $fi.DsTag }} =", x)
 		}
