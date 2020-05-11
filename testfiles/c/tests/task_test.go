@@ -61,7 +61,7 @@ func TestDatastore(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	now := time.Now()
+	now := time.Unix(time.Now().Unix(), 0)
 	desc := "hello"
 
 	incmplKey := datastore.IncompleteKey("Task", nil)

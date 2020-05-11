@@ -68,7 +68,7 @@ func TestDatastoreListTask(t *testing.T) {
 		}
 	}()
 
-	now := time.Now()
+	now := time.Unix(0, time.Now().UnixNano())
 	desc := "Hello, World!"
 
 	tks := make([]*task.Task, 0)
@@ -199,7 +199,7 @@ func TestDatastoreListNameWithIndexes(t *testing.T) {
 		}
 	}()
 
-	now := time.Now()
+	now := time.Unix(0, time.Now().UnixNano())
 	desc := "Hello, World!"
 	desc2 := "Prefix, Test!"
 
@@ -337,7 +337,7 @@ func TestDatastore(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	now := time.Now()
+	now := time.Unix(time.Now().Unix(), 0)
 	desc := "hello"
 
 	id, err := taskRepo.Insert(ctx, &task.Task{
