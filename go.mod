@@ -8,6 +8,7 @@ require (
 	cloud.google.com/go/datastore v1.1.0
 	github.com/fatih/structtag v1.2.0
 	github.com/go-utils/cont v0.1.0
+	github.com/go-utils/dedupe v1.0.0
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.1 // indirect
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
