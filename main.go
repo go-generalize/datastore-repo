@@ -308,24 +308,23 @@ func getTypeNameAndCheck(field *ast.Field, f func(string)) (string, bool) {
 			if cont.Contains(builtInType, s) || field.Tag == nil {
 				f(typeName)
 				return "", true
+			}
+			tags, err := structtag.Parse(strings.Trim(field.Tag.Value, "`"))
+			if err != nil {
+				f(typeName)
+				return "", true
+			}
+			tag, err := tags.Get("type")
+			if err != nil {
+				f(typeName)
+				return "", true
+			}
+			val := tag.Value()
+			if cont.Contains(supportType, val) {
+				typeName = p + val
 			} else {
-				tags, err := structtag.Parse(strings.Trim(field.Tag.Value, "`"))
-				if err != nil {
-					f(typeName)
-					return "", true
-				}
-				tag, err := tags.Get("type")
-				if err != nil {
-					f(typeName)
-					return "", true
-				}
-				val := tag.Value()
-				if cont.Contains(supportType, val) {
-					typeName = p + val
-				} else {
-					f(typeName)
-					return "", true
-				}
+				f(typeName)
+				return "", true
 			}
 		}
 	}
