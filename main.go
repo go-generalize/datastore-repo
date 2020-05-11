@@ -113,6 +113,10 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 			continue
 		}
 
+		if strings.HasPrefix(typeName, "[]") {
+			gen.SliceExist = true
+		}
+
 		if field.Tag == nil {
 			fieldInfo := &FieldInfo{
 				DsTag:     name,

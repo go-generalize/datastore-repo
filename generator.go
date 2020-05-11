@@ -45,6 +45,7 @@ type generator struct {
 	EnableIndexes       bool
 	FieldInfoForIndexes *FieldInfo
 	BoolCriteriaCnt     int
+	SliceExist          bool
 }
 
 func (g *generator) setting() {
@@ -83,6 +84,10 @@ func (g *generator) generate(writer io.Writer) {
 				fn = ".Int64()"
 			case typeFloat64:
 				fn = ".Float64()"
+			case typeString:
+				fn = ".String()"
+			case typeBool:
+				fn = ".Bool()"
 			default:
 				panic("invalid types")
 			}
@@ -195,6 +200,9 @@ import (
 	"cloud.google.com/go/datastore"
 {{- if eq .EnableIndexes true }}
 	"github.com/knightso/xian"
+{{- end }}
+{{- if eq .SliceExist true }}
+	"github.com/go-utils/dedupe"
 {{- end }}
 	"golang.org/x/xerrors"
 )
@@ -376,6 +384,9 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	}
 {{- else if eq $PrefixIsSlice true }}
 	if len(req.{{ $fi.Field }}) > 0 {
+		if err := dedupe.Do(&req.{{ $fi.Field }}); err != nil {
+			return nil, xerrors.Errorf("error in dedupe.Do method: %w", err)
+		}
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}
 		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ $fi.Field }})
