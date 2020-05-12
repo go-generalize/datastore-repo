@@ -32,6 +32,8 @@ func TestGenerator(t *testing.T) {
 			t.Fatalf("chdir failed: %+v", err)
 		}
 
+		// t.Logだと通常テスト時に出力されない & verboseモードでもt.Logだと改行されてしまう
+		// 以上により `fmt.Print` を採用
 		fmt.Print("Failure pattern -> ")
 		if err := run("Task"); err != nil {
 			t.Fatalf("failed to generate for testfiles/a: %+v", err)
