@@ -5,6 +5,33 @@ import (
 	"regexp"
 )
 
+const (
+	biunigrams   = "Biunigrams"
+	prefix       = "Prefix"
+	queryLabel   = "QueryLabel"
+	typeString   = "string"
+	typeInt      = "int"
+	typeInt64    = "int64"
+	typeFloat64  = "float64"
+	typeBool     = "bool"
+	typeTime     = "time.Time"
+	datastoreKey = "*datastore.Key"
+)
+
+var (
+	fieldLabel  string
+	valueCheck  = regexp.MustCompile("^[0-9a-zA-Z_]+$")
+	supportType = []string{
+		typeBool,
+		typeString,
+		typeInt,
+		typeInt64,
+		typeFloat64,
+		typeTime,
+		datastoreKey,
+	}
+)
+
 func getTypeName(typ ast.Expr) string {
 	switch v := typ.(type) {
 	case *ast.SelectorExpr:
@@ -23,49 +50,3 @@ func getTypeName(typ ast.Expr) string {
 		return ""
 	}
 }
-
-const (
-	biunigrams  = "Biunigrams"
-	prefix      = "Prefix"
-	queryLabel  = "QueryLabel"
-	typeString  = "string"
-	typeInt     = "int"
-	typeInt64   = "int64"
-	typeFloat64 = "float64"
-	typeBool    = "bool"
-	typeTime    = "time.Time"
-)
-
-var (
-	fieldLabel  string
-	valueCheck  = regexp.MustCompile("^[0-9a-zA-Z_]+$")
-	builtInType = []string{
-		"uint8",
-		"uint16",
-		"uint32",
-		"uint64",
-		"int8",
-		"int16",
-		"int32",
-		"float32",
-		"complex64",
-		"complex128",
-		"uint",
-		"uintptr",
-		"byte",
-		"rune",
-		typeBool,
-		typeString,
-		typeInt,
-		typeInt64,
-		typeFloat64,
-	}
-	supportType = []string{
-		typeBool,
-		typeString,
-		typeInt,
-		typeInt64,
-		typeFloat64,
-		typeTime,
-	}
-)

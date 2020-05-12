@@ -16,6 +16,12 @@ import (
 	"golang.org/x/xerrors"
 )
 
+func init() {
+	for _, x := range supportType {
+		supportType = append(supportType, "[]"+x)
+	}
+}
+
 func main() {
 	l := len(os.Args)
 	if l < 2 {
@@ -101,15 +107,12 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 
 		pos := fs.Position(field.Pos()).String()
 
-		typeError := func(typeName string) {
+		typeName := getTypeName(field.Type)
+		if !cont.Contains(supportType, typeName) {
 			log.Printf(
-				"%s: the type of `%s` is an invalid type in struct `%s` [%s]",
+				"%s: the type of `%s` is an invalid type in struct `%s` [%s]\n",
 				pos, name, gen.StructName, typeName,
 			)
-		}
-
-		typeName, continued := getTypeNameAndCheck(field, typeError)
-		if continued {
 			continue
 		}
 
@@ -288,47 +291,6 @@ func appendIndexesInfo(fieldInfo *FieldInfo, dupMap map[string]int) {
 		idx.Method += "Something"
 	}
 	fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
-}
-
-func getTypeNameAndCheck(field *ast.Field, f func(string)) (string, bool) {
-	typeName := getTypeName(field.Type)
-	if typeName == "*datastore.Key" {
-		return typeName, false
-	}
-	if !cont.Contains(supportType, typeName) {
-		s := typeName
-		var p string
-		if strings.HasPrefix(typeName, "[]") {
-			p = "[]"
-			s = typeName[2:]
-		}
-		if cont.Contains(supportType, s) {
-			typeName = p + s
-		} else {
-			if cont.Contains(builtInType, s) || field.Tag == nil {
-				f(typeName)
-				return "", true
-			}
-			tags, err := structtag.Parse(strings.Trim(field.Tag.Value, "`"))
-			if err != nil {
-				f(typeName)
-				return "", true
-			}
-			tag, err := tags.Get("type")
-			if err != nil {
-				f(typeName)
-				return "", true
-			}
-			val := tag.Value()
-			if cont.Contains(supportType, val) {
-				typeName = p + val
-			} else {
-				f(typeName)
-				return "", true
-			}
-		}
-	}
-	return typeName, false
 }
 
 func dataStoreTagCheck(pos string, tags *structtag.Tags) (string, error) {

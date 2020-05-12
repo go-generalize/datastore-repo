@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,6 +32,7 @@ func TestGenerator(t *testing.T) {
 			t.Fatalf("chdir failed: %+v", err)
 		}
 
+		fmt.Print("Failure pattern -> ")
 		if err := run("Task"); err != nil {
 			t.Fatalf("failed to generate for testfiles/a: %+v", err)
 		}

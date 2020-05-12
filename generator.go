@@ -5,6 +5,8 @@ import (
 	"log"
 	"strings"
 	"text/template"
+
+	"github.com/iancoleman/strcase"
 )
 
 type IndexesInfo struct {
@@ -50,7 +52,7 @@ type generator struct {
 
 func (g *generator) setting() {
 	g.RepositoryInterfaceName = g.StructName + "Repository"
-	g.setRepositoryStructName()
+	g.RepositoryStructName = strcase.ToLowerCamel(g.RepositoryInterfaceName)
 	g.buildConditions()
 }
 
@@ -61,16 +63,6 @@ func (g *generator) buildConditions() {
 			g.ImportList = append(g.ImportList, ImportInfo{"time"})
 		}
 	}
-}
-
-func (g *generator) setRepositoryStructName() {
-	name := g.RepositoryInterfaceName
-	prefix := name[:1]
-	r := []rune(prefix)[0]
-	if 65 <= r && r <= 90 {
-		prefix = string(r + 32)
-	}
-	g.RepositoryStructName = prefix + name[1:]
 }
 
 func (g *generator) generate(writer io.Writer) {
@@ -132,7 +124,10 @@ func (g *generator) generateConstant(writer io.Writer) {
 const tmplConst = `// THIS FILE IS A GENERATED CODE. DO NOT EDIT
 package {{ .PackageName }}
 
-import "strconv"
+import (
+	"log"
+	"strconv"
+)
 
 type BoolCriteria string
 
@@ -146,13 +141,28 @@ func (src BoolCriteria) Bool() bool {
 	return src == BoolCriteriaTrue
 }
 
-type IntegerCriteria string
+type NumericCriteria string
 
 const (
-	IntegerCriteriaEmpty IntegerCriteria = ""
+	NumericCriteriaEmpty NumericCriteria = ""
+	NumericCriteriaBase  NumericCriteria = "0"
 )
 
-func (str IntegerCriteria) Int() int {
+func (str NumericCriteria) Parse(i interface{}) NumericCriteria {
+	switch x := i.(type) {
+	case int:
+		return NumericCriteria(strconv.Itoa(x))
+	case int64:
+		return NumericCriteria(strconv.FormatInt(x, 10))
+	case float64:
+		return NumericCriteria(strconv.FormatFloat(x, 'f', -1, 64))
+	default:
+		log.Println("invalid NumericCriteria value")
+	}
+	return NumericCriteriaEmpty
+}
+
+func (str NumericCriteria) Int() int {
 	i32, err := strconv.Atoi(string(str))
 	if err != nil {
 		return -1
@@ -160,7 +170,7 @@ func (str IntegerCriteria) Int() int {
 	return i32
 }
 
-func (str IntegerCriteria) Int64() int64 {
+func (str NumericCriteria) Int64() int64 {
 	i64, err := strconv.ParseInt(string(str), 10, 64)
 	if err != nil {
 		return -1
@@ -168,7 +178,7 @@ func (str IntegerCriteria) Int64() int64 {
 	return i64
 }
 
-func (str IntegerCriteria) Float64() float64 {
+func (str NumericCriteria) Float64() float64 {
 	f64, err := strconv.ParseFloat(string(str), 64)
 	if err != nil {
 		return -1
@@ -275,7 +285,8 @@ func (repo *{{ .RepositoryStructName }}) getKeys(subjects ...*{{ .StructName }})
 
 	return keys, nil
 }
-{{ if eq .EnableIndexes true }}
+
+{{- if eq .EnableIndexes true }}
 // saveIndexes 拡張フィルタを保存する
 func (repo *{{ .RepositoryStructName }}) saveIndexes(subjects ...*{{ .StructName }}) error {
 	for _, subject := range subjects {
@@ -321,13 +332,13 @@ var {{ .StructName }}IndexesConfig = &xian.Config{
 {{- end }}
 
 // {{ .StructName }}ListReq List取得時に渡すリクエスト
-// └─ bool/int(64)|float64 は stringで渡す(BoolCriteria | IntegerCriteria)
+// └─ bool/int(64)|float64 は stringの独自型で渡す(BoolCriteria | NumericCriteria)
 type {{ .StructName }}ListReq struct {
 {{- range .FieldInfos }}
 {{- if eq .FieldType "bool" }}
 	{{ .Field }} BoolCriteria
 {{- else if or (eq .FieldType "int") (eq .FieldType "int64") (eq .FieldType "float64" ) }}
-	{{ .Field }} IntegerCriteria
+	{{ .Field }} NumericCriteria
 {{- else }}
 	{{ .Field }} {{ .FieldType }}
 {{- end }}
@@ -347,7 +358,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 	filters := xian.NewFilters({{ .StructName }}IndexesConfig)
 {{- end }}
 {{- range $fi := .FieldInfos }}
-{{ $PrefixIsSlice := HasPrefixSlice $fi.FieldType}}
+{{- $PrefixIsSlice := HasPrefixSlice $fi.FieldType}}
 {{- if eq $fi.FieldType "bool" }}
 	if req.{{ $fi.Field }} != "" {
 {{- if eq $Enable true }}
@@ -369,7 +380,7 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 {{- end }}
 	}
 {{- else if or (eq $fi.FieldType "int") (eq $fi.FieldType "int64") (eq $fi.FieldType "float64" ) }}
-	if req.{{ $fi.Field }} != IntegerCriteriaEmpty {
+	if req.{{ $fi.Field }} != NumericCriteriaEmpty {
 {{- if eq $Enable true }}
 {{- range $idx := $fi.Indexes }}
 		filters.{{ $idx.Method }}({{ $idx.ConstName }}, req.{{ $fi.Field }}.{{ Parse $fi.FieldType }}())
@@ -423,11 +434,11 @@ func (repo *{{ .RepositoryStructName }}) List(ctx context.Context, req *{{ .Stru
 		if k != nil {
 {{- if eq .KeyFieldType "int64" }}
 			subjects[i].ID = k.ID
-{{ else if eq .KeyFieldType "string" }}
+{{- else if eq .KeyFieldType "string" }}
 			subjects[i].ID = k.Name
-{{ else }}
+{{- else }}
 			subjects[i].ID = k
-{{ end }}
+{{- end }}
 		}
 	}
 
@@ -448,7 +459,7 @@ func (repo *{{ .RepositoryStructName }}) Get(ctx context.Context, {{ .KeyValueNa
 	if err != nil {
 		return nil, err
 	}
-{{if eq .KeyFieldType "int64" }}
+{{ if eq .KeyFieldType "int64" }}
 	subject.{{ .KeyFieldName }} = key.ID
 {{ else if eq .KeyFieldType "string" }}
 	subject.{{ .KeyFieldName }} = key.Name
@@ -480,11 +491,11 @@ func (repo *{{ .RepositoryStructName }}) Insert(ctx context.Context, subject *{{
 	if err != nil {
 		return zero, err
 	}
-{{if eq .KeyFieldType "int64" }}
+{{ if eq .KeyFieldType "int64" }}
 	return key.ID, nil
-{{ else if eq .KeyFieldType "string" }}
+{{- else if eq .KeyFieldType "string" }}
 	return key.Name, nil
-{{ else }}
+{{- else }}
 	return key, nil
 {{- end }}
 }

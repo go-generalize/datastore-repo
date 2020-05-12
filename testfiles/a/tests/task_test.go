@@ -95,7 +95,7 @@ func TestDatastoreListTask(t *testing.T) {
 
 	t.Run("int(1件)", func(t *testing.T) {
 		req := &task.TaskListReq{
-			Count: task.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
+			Count: task.NumericCriteriaBase.Parse(1),
 		}
 
 		tasks, err := taskRepo.List(ctx, req, nil)
@@ -110,7 +110,7 @@ func TestDatastoreListTask(t *testing.T) {
 
 	t.Run("float(1件)", func(t *testing.T) {
 		req := &task.TaskListReq{
-			Proportion: task.IntegerCriteria("1.12345"), // FIXME 2 この実装をどうにかしたい
+			Proportion: task.NumericCriteriaBase.Parse(1.12345),
 		}
 
 		tasks, err := taskRepo.List(ctx, req, nil)
@@ -167,22 +167,6 @@ func TestDatastoreListTask(t *testing.T) {
 			t.Fatal("not match")
 		}
 	})
-
-	// TODO 現状、独自型のスライスを許容できない
-	/* t.Run("[]task.BoolCriteria(10件)", func(t *testing.T) {
-		req := &task.TaskListReq{
-			FlagList: []task.BoolCriteria{task.BoolCriteriaTrue},
-		}
-
-		tasks, err := taskRepo.List(ctx, req, nil)
-		if err != nil {
-			t.Fatalf("%+v", err)
-		}
-
-		if len(tasks) != 10 {
-			t.Fatal("not match")
-		}
-	}) */
 }
 
 func TestDatastoreListNameWithIndexes(t *testing.T) {
@@ -223,7 +207,7 @@ func TestDatastoreListNameWithIndexes(t *testing.T) {
 
 	t.Run("int(1件)", func(t *testing.T) {
 		req := &task.NameListReq{
-			Count: task.IntegerCriteria("1"), // FIXME 2 この実装をどうにかしたい
+			Count: task.NumericCriteriaBase.Parse(1),
 		}
 
 		tasks, err := nameRepo.List(ctx, req, nil)
