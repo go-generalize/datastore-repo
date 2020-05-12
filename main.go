@@ -161,75 +161,15 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 					FieldType: typeName,
 					Indexes:   make([]*IndexesInfo, 0),
 				}
-				if tag, err := dataStoreTagCheck(pos, tags); err != nil {
-					return xerrors.Errorf("error in tagCheck method: %w", err)
-				} else if tag != "" {
-					fieldInfo.DsTag = tag
+				if fieldInfo, err = appendIndexer(pos, tags, fieldInfo, dupMap); err != nil {
+					return xerrors.Errorf("error in appendIndexer: %w", err)
 				}
-				if idr, err := tags.Get("indexer"); err != nil || fieldInfo.FieldType != typeString {
-					appendIndexesInfo(fieldInfo, dupMap)
-				} else {
-					filters := strings.Split(idr.Value(), ",")
-					dupIdr := make(map[string]struct{})
-					for _, fil := range filters {
-						idx := &IndexesInfo{
-							ConstName: fieldLabel + name,
-							Label:     uppercaseExtraction(fieldInfo.Field, dupMap),
-							Method:    "Add",
-						}
-						var dupFlag string
-						switch fil {
-						case "p", "prefix": // 前方一致 (AddPrefix)
-							idx.Method += prefix
-							idx.ConstName += prefix
-							idx.Comment = fmt.Sprintf("%s %s前方一致", idx.ConstName, name)
-							dupFlag = "p"
-						case "s", "suffix": /* TODO 後方一致
-							idx.Method += Suffix
-							idx.ConstName += Suffix
-							idx.Comment = fmt.Sprintf("%s %s後方一致", idx.ConstName, name)
-							dup = "s"*/
-						case "e", "equal": // 完全一致 (Add) Default
-							idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, name)
-							dupIdr["equal"] = struct{}{}
-							dupFlag = "e"
-						case "l", "like": // 部分一致
-							idx.Method += biunigrams
-							idx.ConstName += "Like"
-							idx.Comment = fmt.Sprintf("%s %s部分一致", idx.ConstName, name)
-							dupFlag = "l"
-						default:
-							continue
-						}
-						if _, ok := dupIdr[dupFlag]; ok {
-							continue
-						}
-						dupIdr[dupFlag] = struct{}{}
-						fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
-					}
-				}
-
 				gen.FieldInfos = append(gen.FieldInfos, fieldInfo)
 				continue
 			}
-
-			dsTag, err := tags.Get("datastore")
-
-			// datastore タグが存在しないか-になっていない
-			if err != nil || strings.Split(dsTag.Value(), ",")[0] != "-" {
-				return xerrors.Errorf("%s: key field for datastore should have datastore:\"-\" tag", pos)
+			if err := keyFieldHandler(gen, tags, name, typeName, pos); err != nil {
+				return xerrors.Errorf("error in keyFieldHandler: %w", err)
 			}
-
-			gen.KeyFieldName = name
-			gen.KeyFieldType = typeName
-
-			if gen.KeyFieldType != typeInt64 &&
-				gen.KeyFieldType != typeString &&
-				!strings.HasSuffix(gen.KeyFieldType, ".Key") {
-				return xerrors.Errorf("%s: supported key types are int64, string, *datastore.Key", pos)
-			}
-
-			gen.KeyValueName = strcase.ToLowerCamel(name)
 		}
 	}
 
@@ -263,6 +203,78 @@ func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) err
 	}
 
 	return nil
+}
+
+func keyFieldHandler(gen *generator, tags *structtag.Tags, name, typeName, pos string) error {
+	dsTag, err := tags.Get("datastore")
+
+	// datastore タグが存在しないか-になっていない
+	if err != nil || strings.Split(dsTag.Value(), ",")[0] != "-" {
+		return xerrors.Errorf("%s: key field for datastore should have datastore:\"-\" tag", pos)
+	}
+
+	gen.KeyFieldName = name
+	gen.KeyFieldType = typeName
+
+	if gen.KeyFieldType != typeInt64 &&
+		gen.KeyFieldType != typeString &&
+		!strings.HasSuffix(gen.KeyFieldType, ".Key") {
+		return xerrors.Errorf("%s: supported key types are int64, string, *datastore.Key", pos)
+	}
+
+	gen.KeyValueName = strcase.ToLowerCamel(name)
+	return nil
+}
+
+func appendIndexer(pos string, tags *structtag.Tags, fieldInfo *FieldInfo, dupMap map[string]int) (*FieldInfo, error) {
+	if tag, err := dataStoreTagCheck(pos, tags); err != nil {
+		return nil, xerrors.Errorf("error in tagCheck method: %w", err)
+	} else if tag != "" {
+		fieldInfo.DsTag = tag
+	}
+	if idr, err := tags.Get("indexer"); err != nil || fieldInfo.FieldType != typeString {
+		appendIndexesInfo(fieldInfo, dupMap)
+	} else {
+		filters := strings.Split(idr.Value(), ",")
+		dupIdr := make(map[string]struct{})
+		for _, fil := range filters {
+			idx := &IndexesInfo{
+				ConstName: fieldLabel + fieldInfo.Field,
+				Label:     uppercaseExtraction(fieldInfo.Field, dupMap),
+				Method:    "Add",
+			}
+			var dupFlag string
+			switch fil {
+			case "p", "prefix": // 前方一致 (AddPrefix)
+				idx.Method += prefix
+				idx.ConstName += prefix
+				idx.Comment = fmt.Sprintf("%s %s前方一致", idx.ConstName, fieldInfo.Field)
+				dupFlag = "p"
+			case "s", "suffix": /* TODO 後方一致
+				idx.Method += Suffix
+				idx.ConstName += Suffix
+				idx.Comment = fmt.Sprintf("%s %s後方一致", idx.ConstName, name)
+				dup = "s"*/
+			case "e", "equal": // 完全一致 (Add) Default
+				idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, fieldInfo.Field)
+				dupIdr["equal"] = struct{}{}
+				dupFlag = "e"
+			case "l", "like": // 部分一致
+				idx.Method += biunigrams
+				idx.ConstName += "Like"
+				idx.Comment = fmt.Sprintf("%s %s部分一致", idx.ConstName, fieldInfo.Field)
+				dupFlag = "l"
+			default:
+				continue
+			}
+			if _, ok := dupIdr[dupFlag]; ok {
+				continue
+			}
+			dupIdr[dupFlag] = struct{}{}
+			fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
+		}
+	}
+	return fieldInfo, nil
 }
 
 func uppercaseExtraction(name string, dupMap map[string]int) (lower string) {
