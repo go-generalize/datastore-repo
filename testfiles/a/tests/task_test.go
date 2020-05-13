@@ -54,6 +54,105 @@ func compareTask(t *testing.T, expected, actual *task.Task) {
 	}
 }
 
+func TestDatastoreTransactionTask(t *testing.T) {
+	client := initDatastoreClient(t)
+
+	taskRepo := task.NewTaskRepository(client)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	var ids []int64
+	defer func() {
+		defer cancel()
+		if err := taskRepo.DeleteMultiByIDs(ctx, ids); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	now := time.Unix(0, time.Now().UnixNano())
+	desc := "Hello, World!"
+
+	t.Run("Multi", func(tr *testing.T) {
+		tks := make([]*task.Task, 0)
+		for i := int64(1); i <= 10; i++ {
+			tk := &task.Task{
+				ID:         i * 100,
+				Desc:       fmt.Sprintf("%s%d", desc, i),
+				Created:    now,
+				Done:       true,
+				Done2:      false,
+				Count:      int(i),
+				Count64:    0,
+				Proportion: 0.12345 + float64(i),
+				Flag:       task.Flag(true),
+				NameList:   []string{"a", "b", "c"},
+			}
+			tks = append(tks, tk)
+		}
+		idList, err := taskRepo.InsertMulti(ctx, tks)
+		if err != nil {
+			tr.Fatalf("%+v", err)
+		}
+		ids = append(ids, idList...)
+
+		tks2 := make([]*task.Task, 0)
+		for i := int64(1); i <= 10; i++ {
+			tk := &task.Task{
+				ID:         i * 100,
+				Desc:       fmt.Sprintf("%s%d", desc, i),
+				Created:    now,
+				Done:       true,
+				Done2:      false,
+				Count:      int(i),
+				Count64:    i,
+				Proportion: 0.12345 + float64(i),
+				Flag:       task.Flag(true),
+				NameList:   []string{"a", "b", "c"},
+			}
+			tks2 = append(tks2, tk)
+		}
+		if err := taskRepo.UpdateMulti(ctx, tks2); err != nil {
+			tr.Fatalf("%+v", err)
+		}
+
+		if tks[0].ID != tks2[0].ID {
+			tr.Fatalf("unexpected id: %d (expected: %d)", tks[0].ID, tks2[0].ID)
+		}
+	})
+
+	t.Run("Single", func(tr *testing.T) {
+		tk := &task.Task{
+			ID:         1001,
+			Desc:       fmt.Sprintf("%s%d", desc, 1001),
+			Created:    now,
+			Done:       true,
+			Done2:      false,
+			Count:      11,
+			Count64:    11,
+			Proportion: 0.12345 + 11,
+			NameList:   []string{"a", "b", "c"},
+		}
+		id, err := taskRepo.Insert(ctx, tk)
+		if err != nil {
+			tr.Fatalf("%+v", err)
+		}
+		ids = append(ids, id)
+
+		tk.Count = 12
+		if err := taskRepo.Update(ctx, tk); err != nil {
+			tr.Fatalf("%+v", err)
+		}
+
+		tsk, err := taskRepo.Get(ctx, tk.ID)
+		if err != nil {
+			tr.Fatalf("%+v", err)
+		}
+
+		if tsk.Count != 12 {
+			tr.Fatalf("unexpected Count: %d (expected: %d)", tsk.Count, 12)
+		}
+	})
+}
+
 func TestDatastoreListTask(t *testing.T) {
 	client := initDatastoreClient(t)
 
