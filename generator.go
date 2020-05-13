@@ -485,44 +485,66 @@ func (repo *{{ .RepositoryStructName }}) Insert(ctx context.Context, subject *{{
 	if err != nil {
 		return zero, xerrors.Errorf("error in getKeys method: %w", err)
 	}
-{{ if eq .EnableIndexes true }}
-	if err := repo.saveIndexes(subject); err != nil {
-		return zero, xerrors.Errorf("error in saveIndexes method: %w", err)
-	}
-{{ end }}
-	key, err := repo.datastoreClient.Put(ctx, keys[0], subject)
+
+	_, err = repo.datastoreClient.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+		if err := tx.Get(keys[0], nil); err != datastore.ErrNoSuchEntity {
+			return xerrors.Errorf("error in datastore.Transaction.Get method: %w", err)
+		}
+
+{{- if eq .EnableIndexes true }}
+		if err := repo.saveIndexes(subject); err != nil {
+			return xerrors.Errorf("error in saveIndexes method: %w", err)
+		}
+{{- end }}
+
+		_, err := tx.Put(keys[0], subject)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		return zero, err
+		return zero, xerrors.Errorf("error in datastore.Client.RunInTransaction method: %w", err)
 	}
 {{ if eq .KeyFieldType "int64" }}
-	return key.ID, nil
+	return keys[0].ID, nil
 {{- else if eq .KeyFieldType "string" }}
-	return key.Name, nil
+	return keys[0].Name, nil
 {{- else }}
-	return key, nil
+	return keys[0], nil
 {{- end }}
 }
 
 // Update 処理中の {{ .StructName }} の更新処理一切の責任を持ち、これを行う
-func (repo *{{ .RepositoryStructName }}) Update(ctx context.Context, subject *{{ .StructName }}) error {
-	if _, err := repo.Get(ctx, subject.{{ .KeyFieldName }}); err == datastore.ErrNoSuchEntity {
-		return err
-	}
+func (repo *{{ .RepositoryStructName }}) Update(ctx context.Context, subject *{{ .StructName }}) (err error) {
+	_, err = repo.datastoreClient.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+		keys, err := repo.getKeys(subject)
+		if err != nil {
+			return xerrors.Errorf("error in getKeys method: %w", err)
+		}
 
-	keys, err := repo.getKeys(subject)
+		if err := tx.Get(keys[0], nil); err == datastore.ErrNoSuchEntity {
+			return xerrors.Errorf("error in datastore.Transaction.Get method: %w", err)
+		}
+
+{{- if eq .EnableIndexes true }}
+		if err := repo.saveIndexes(subject); err != nil {
+			return xerrors.Errorf("error in saveIndexes method: %w", err)
+		}
+{{- end }}
+
+		if _, err := tx.Put(keys[0], subject); err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		return xerrors.Errorf("error in getKeys method: %w", err)
-	}
-{{ if eq .EnableIndexes true }}
-	if err := repo.saveIndexes(subject); err != nil {
-		return xerrors.Errorf("error in saveIndexes method: %w", err)
-	}
-{{ end }}
-	if _, err := repo.datastoreClient.Put(ctx, keys[0], subject); err != nil {
-		return err
+		err = xerrors.Errorf("error in datastore.Client.RunInTransaction method: %w", err)
 	}
 
-	return nil
+	return
 }
 
 // Delete 処理中の {{ .StructName }} の削除処理一切の責任を持ち、これを行う
@@ -583,50 +605,58 @@ func (repo *{{ .RepositoryStructName }}) GetMulti(ctx context.Context, {{ .KeyVa
 }
 
 // InsertMulti 処理中の {{ .StructName }} の一括挿入処理一切の責任を持ち、これを行う
-func (repo *{{ .RepositoryStructName }}) InsertMulti(ctx context.Context, subjects []*{{ .StructName }}) ([]{{ .KeyFieldType }}, error) {
+func (repo *{{ .RepositoryStructName }}) InsertMulti(ctx context.Context, subjects []*{{ .StructName }}) ({{ .KeyValueName }}s []{{ .KeyFieldType }}, err error) {
 	keys, err := repo.getKeys(subjects...)
 	if err != nil {
 		return nil, xerrors.Errorf("error in getKeys method: %w", err)
 	}
 
-	var cnt int
-	if err := repo.datastoreClient.GetMulti(ctx, keys, make([]*{{ .StructName }}, len(subjects))); err != nil {
-		if errs, ok := err.(datastore.MultiError); ok {
-			for _, err := range errs {
-				if err == datastore.ErrNoSuchEntity {
-					cnt++
+	_, err = repo.datastoreClient.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+		var cnt int
+		if err := tx.GetMulti(keys, make([]*{{ .StructName }}, len(subjects))); err != nil {
+			if errs, ok := err.(datastore.MultiError); ok {
+				for _, err := range errs {
+					if err == datastore.ErrNoSuchEntity {
+						cnt++
+					} else {
+						return xerrors.Errorf("error in datastore.Client.GetMulti method: %w", err)
+					}
 				}
 			}
 		}
-	}
-
-	if len(subjects) != cnt {
-		return nil, xerrors.Errorf("already exist. (%d)", len(subjects)-cnt)
-	}
-{{ if eq .EnableIndexes true }}
-	if err := repo.saveIndexes(subjects...); err != nil {
-		return nil, xerrors.Errorf("error in saveIndexes method: %w", err)
-	}
-{{ end }}
-	resKeys, err := repo.datastoreClient.PutMulti(ctx, keys, subjects)
-	if err != nil {
-		return nil, err
-	}
-
-	vessels := make([]{{ .KeyFieldType }}, len(resKeys))
-	for i := range resKeys {
-		if keys[i] != nil {
-{{- if eq .KeyFieldType "int64" }}
-			vessels[i] = resKeys[i].ID
-{{- else if eq .KeyFieldType "string" }}
-			vessels[i] = resKeys[i].Name
-{{- else }}
-			vessels[i] = resKeys[i]
-{{- end }}
+		if len(subjects) != cnt {
+			return xerrors.Errorf("already exist. (%d)", len(subjects)-cnt)
 		}
+{{ if eq .EnableIndexes true }}
+		if err := repo.saveIndexes(subjects...); err != nil {
+			return xerrors.Errorf("error in saveIndexes method: %w", err)
+		}
+{{- end }}
+		_, err := tx.PutMulti(keys, subjects)
+		if err != nil {
+			return err
+		}
+
+		{{ .KeyValueName }}s = make([]{{ .KeyFieldType }}, len(keys))
+		for i := range keys {
+			if keys[i] != nil {
+{{- if eq .KeyFieldType "int64" }}
+				{{ .KeyValueName }}s[i] = keys[i].ID
+{{- else if eq .KeyFieldType "string" }}
+				{{ .KeyValueName }}s[i] = keys[i].Name
+{{- else }}
+				{{ .KeyValueName }}s[i] = keys[i]
+{{- end }}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, xerrors.Errorf("error in datastore.Client.RunInTransaction method: %w", err)
 	}
 
-	return vessels, err
+	return
 }
 
 // UpdateMulti 処理中の {{ .StructName }} の一括更新処理一切の責任を持ち、これを行う
@@ -636,19 +666,26 @@ func (repo *{{ .RepositoryStructName }}) UpdateMulti(ctx context.Context, subjec
 		return xerrors.Errorf("error in getKeys method: %w", err)
 	}
 
-	if err := repo.datastoreClient.GetMulti(ctx, keys, make([]*{{ .StructName }}, len(subjects))); err != nil {
-		if _, ok := err.(datastore.MultiError); ok {
+	_, err = repo.datastoreClient.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+		if err := tx.GetMulti(keys, make([]*{{ .StructName }}, len(subjects))); err != nil {
+			if _, ok := err.(datastore.MultiError); ok {
+				return err
+			}
+		}
+{{ if eq .EnableIndexes true }}
+		if err := repo.saveIndexes(subjects...); err != nil {
+			return xerrors.Errorf("error in saveIndexes method: %w", err)
+		}
+{{ end }}
+		_, err = tx.PutMulti(keys, subjects)
+		if err != nil {
 			return err
 		}
-	}
-{{ if eq .EnableIndexes true }}
-	if err := repo.saveIndexes(subjects...); err != nil {
-		return xerrors.Errorf("error in saveIndexes method: %w", err)
-	}
-{{ end }}
-	_, err = repo.datastoreClient.PutMulti(ctx, keys, subjects)
+
+		return nil
+	})
 	if err != nil {
-		return err
+		return xerrors.Errorf("error in datastore.Client.RunInTransaction method: %w", err)
 	}
 
 	return nil
