@@ -548,7 +548,7 @@ func (repo *{{ .RepositoryStructName }}) DeleteBy{{ .KeyFieldName }}(ctx context
 }
 
 // GetMulti 処理中の {{ .StructName }} の一括取得処理一切の責任を持ち、これを行う
-func (repo *{{ .RepositoryStructName }}) GetMulti(ctx context.Context, {{ .KeyValueName }}s []{{ .KeyFieldType }}) ([]*{{ .StructName }}, error) {
+func (repo *{{ .RepositoryStructName }}) GetMulti(ctx context.Context, {{ .KeyValueName }}s []{{ .KeyFieldType }}) (subjects []*{{ .StructName }}, err error) {
 {{- if eq .KeyFieldType "int64" }}
 	keys := make([]*datastore.Key, 0, len({{ .KeyValueName }}s))
 
@@ -564,22 +564,22 @@ func (repo *{{ .RepositoryStructName }}) GetMulti(ctx context.Context, {{ .KeyVa
 {{ else }}
 	keys := {{ .KeyValueName }}s
 {{ end }}
-	vessels := make([]*{{ .StructName }}, len({{ .KeyValueName }}s))
-	err := repo.datastoreClient.GetMulti(ctx, keys, vessels)
+	subjects = make([]*{{ .StructName }}, len({{ .KeyValueName }}s))
+	err = repo.datastoreClient.GetMulti(ctx, keys, subjects)
 
-	for i := range vessels {
-		if vessels[i] != nil {
+	for i := range subjects {
+		if subjects[i] != nil {
 {{- if eq .KeyFieldType "int64" }}
-			vessels[i].{{ .KeyFieldName }} = keys[i].ID
+			subjects[i].{{ .KeyFieldName }} = keys[i].ID
 {{- else if eq .KeyFieldType "string" }}
-			vessels[i].{{ .KeyFieldName }} = keys[i].Name
+			subjects[i].{{ .KeyFieldName }} = keys[i].Name
 {{- else }}
-			vessels[i].{{ .KeyFieldName }} = keys[i]
+			subjects[i].{{ .KeyFieldName }} = keys[i]
 {{- end }}
 		}
 	}
 
-	return vessels, err
+	return
 }
 
 // InsertMulti 処理中の {{ .StructName }} の一括挿入処理一切の責任を持ち、これを行う
