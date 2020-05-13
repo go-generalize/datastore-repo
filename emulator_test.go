@@ -47,6 +47,7 @@ func TestGenerator(t *testing.T) {
 	})
 
 	t.Run("string", func(tr *testing.T) {
+		tr.Parallel()
 		if err := os.Chdir(filepath.Join(root, "testfiles/b")); err != nil {
 			tr.Fatalf("chdir failed: %+v", err)
 		}
@@ -59,6 +60,7 @@ func TestGenerator(t *testing.T) {
 	})
 
 	t.Run("datastore.Key", func(tr *testing.T) {
+		tr.Parallel()
 		if err := os.Chdir(filepath.Join(root, "testfiles/c")); err != nil {
 			tr.Fatalf("chdir failed: %+v", err)
 		}
