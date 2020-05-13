@@ -27,47 +27,47 @@ func TestGenerator(t *testing.T) {
 		t.Fatalf("failed to getwd: %+v", err)
 	}
 
-	t.Run("int64", func(t *testing.T) {
+	t.Run("int64", func(tr *testing.T) {
 		if err := os.Chdir(filepath.Join(root, "testfiles/a")); err != nil {
-			t.Fatalf("chdir failed: %+v", err)
+			tr.Fatalf("chdir failed: %+v", err)
 		}
 
 		// t.Logだと通常テスト時に出力されない & verboseモードでもt.Logだと改行されてしまう
 		// 以上により `fmt.Print` を採用
 		fmt.Print("Failure pattern -> ")
 		if err := run("Task"); err != nil {
-			t.Fatalf("failed to generate for testfiles/a: %+v", err)
+			tr.Fatalf("failed to generate for testfiles/a: %+v", err)
 		}
 
 		if err := run("Name"); err != nil {
-			t.Fatalf("failed to generate for testfiles/a: %+v", err)
+			tr.Fatalf("failed to generate for testfiles/a: %+v", err)
 		}
 
-		execTest(t)
+		execTest(tr)
 	})
 
-	t.Run("string", func(t *testing.T) {
+	t.Run("string", func(tr *testing.T) {
 		if err := os.Chdir(filepath.Join(root, "testfiles/b")); err != nil {
-			t.Fatalf("chdir failed: %+v", err)
+			tr.Fatalf("chdir failed: %+v", err)
 		}
 
 		if err := run("Task"); err != nil {
-			t.Fatalf("failed to generate for testfiles/b: %+v", err)
+			tr.Fatalf("failed to generate for testfiles/b: %+v", err)
 		}
 
-		execTest(t)
+		execTest(tr)
 	})
 
-	t.Run("datastore.Key", func(t *testing.T) {
+	t.Run("datastore.Key", func(tr *testing.T) {
 		if err := os.Chdir(filepath.Join(root, "testfiles/c")); err != nil {
-			t.Fatalf("chdir failed: %+v", err)
+			tr.Fatalf("chdir failed: %+v", err)
 		}
 
 		if err := run("Task"); err != nil {
-			t.Fatalf("failed to generate for testfiles/c: %+v", err)
+			tr.Fatalf("failed to generate for testfiles/c: %+v", err)
 		}
 
-		execTest(t)
+		execTest(tr)
 	})
 
 }
