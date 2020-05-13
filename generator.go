@@ -211,11 +211,14 @@ import (
 {{- end }}
 
 	"cloud.google.com/go/datastore"
-{{- if eq .EnableIndexes true }}
-	"github.com/knightso/xian"
-{{- end }}
 {{- if and (eq .SliceExist true) (eq .EnableIndexes false) }}
 	"github.com/go-utils/dedupe"
+{{- end }}
+{{- if eq .KeyFieldType "*datastore.Key" }}
+	"github.com/google/uuid"
+{{- end }}
+{{- if eq .EnableIndexes true }}
+	"github.com/knightso/xian"
 {{- end }}
 	"golang.org/x/xerrors"
 )
@@ -277,7 +280,7 @@ func (repo *{{ .RepositoryStructName }}) getKeys(subjects ...*{{ .StructName }})
 		keys = append(keys, datastore.NameKey(repo.kind, key, nil))
 {{- else }}
 		if key == nil {
-			key = datastore.IncompleteKey(repo.kind, nil)
+			key = datastore.NameKey(repo.kind, uuid.New().String(), nil)
 		}
 		keys = append(keys, key)
 {{- end }}

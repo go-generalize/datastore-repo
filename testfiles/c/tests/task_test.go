@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/datastore"
 	task "github.com/go-generalize/repo_generator/testfiles/c"
+	"github.com/google/uuid"
 )
 
 func initDatastoreClient(t *testing.T) *datastore.Client {
@@ -64,10 +65,8 @@ func TestDatastore(t *testing.T) {
 	now := time.Unix(time.Now().Unix(), 0)
 	desc := "hello"
 
-	incmplKey := datastore.IncompleteKey("Task", nil)
-
 	id, err := taskRepo.Insert(ctx, &task.Task{
-		ID:      incmplKey,
+		ID:      datastore.NameKey("Task", uuid.New().String(), nil),
 		Desc:    desc,
 		Created: now,
 		Done:    true,

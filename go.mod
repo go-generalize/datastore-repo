@@ -11,6 +11,7 @@ require (
 	github.com/go-utils/dedupe v0.1.1
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.1 // indirect
+	github.com/google/uuid v1.1.1
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 	github.com/knightso/xian v0.1.0
 	github.com/pkg/errors v0.9.1 // indirect
