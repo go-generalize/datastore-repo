@@ -2,6 +2,8 @@ package main
 
 import (
 	"go/ast"
+	"io/ioutil"
+	"log"
 	"regexp"
 )
 
@@ -31,6 +33,19 @@ var (
 		datastoreKey,
 	}
 )
+
+func getFileContents(name string) string {
+	fp, err := statikFS.Open("/" + name + ".go.tmpl")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fp.Close()
+	contents, err := ioutil.ReadAll(fp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(contents)
+}
 
 func getTypeName(typ ast.Expr) string {
 	switch v := typ.(type) {
