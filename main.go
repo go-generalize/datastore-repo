@@ -11,8 +11,16 @@ import (
 	"strings"
 
 	"github.com/fatih/structtag"
+	"github.com/go-utils/cont"
 	"github.com/iancoleman/strcase"
+	"golang.org/x/xerrors"
 )
+
+func init() {
+	for _, x := range supportType {
+		supportType = append(supportType, "[]"+x)
+	}
+}
 
 func main() {
 	l := len(os.Args)
@@ -84,70 +92,229 @@ func traverse(pkg *ast.Package, fs *token.FileSet, structName string) error {
 		}
 	}
 
-	return fmt.Errorf("no such struct: %s", structName)
+	return xerrors.Errorf("no such struct: %s", structName)
 }
 
 func generate(gen *generator, fs *token.FileSet, structType *ast.StructType) error {
+	dupMap := make(map[string]int)
+	fieldLabel = gen.StructName + queryLabel
 	for _, field := range structType.Fields.List {
 		// structの各fieldを調査
-
-		if field.Tag == nil {
-			continue
+		if len(field.Names) != 1 {
+			return xerrors.New("`field.Names` must have only one element")
 		}
+		name := field.Names[0].Name
 
 		pos := fs.Position(field.Pos()).String()
 
-		tags, err := structtag.Parse(strings.Trim(field.Tag.Value, "`"))
+		typeName := getTypeName(field.Type)
+		if !cont.Contains(supportType, typeName) {
+			log.Printf(
+				"%s: the type of `%s` is an invalid type in struct `%s` [%s]\n",
+				pos, name, gen.StructName, typeName,
+			)
+			continue
+		}
 
-		if err != nil {
+		if strings.HasPrefix(typeName, "[]") {
+			gen.SliceExist = true
+		}
+
+		if field.Tag == nil {
+			fieldInfo := &FieldInfo{
+				DsTag:     name,
+				Field:     name,
+				FieldType: typeName,
+				Indexes:   make([]*IndexesInfo, 0),
+			}
+			appendIndexesInfo(fieldInfo, dupMap)
+			gen.FieldInfos = append(gen.FieldInfos, fieldInfo)
+			continue
+		}
+
+		if tags, err := structtag.Parse(strings.Trim(field.Tag.Value, "`")); err != nil {
 			log.Printf(
 				"%s: tag for %s in struct %s in %s",
-				pos, field.Names[0].Name, gen.StructName, gen.GeneratedFileName+".go",
+				pos, name, gen.StructName, gen.GeneratedFileName+".go",
 			)
-
 			continue
+		} else {
+			if name == "Indexes" {
+				gen.EnableIndexes = true
+				fieldInfo := &FieldInfo{
+					DsTag:     name,
+					Field:     name,
+					FieldType: typeName,
+				}
+				if tag, err := dataStoreTagCheck(pos, tags); err != nil {
+					return xerrors.Errorf("error in tagCheck method: %w", err)
+				} else if tag != "" {
+					fieldInfo.DsTag = tag
+				}
+				gen.FieldInfoForIndexes = fieldInfo
+				continue
+			}
+			if _, err := tags.Get("datastore_key"); err != nil {
+				fieldInfo := &FieldInfo{
+					DsTag:     name,
+					Field:     name,
+					FieldType: typeName,
+					Indexes:   make([]*IndexesInfo, 0),
+				}
+				if fieldInfo, err = appendIndexer(pos, tags, fieldInfo, dupMap); err != nil {
+					return xerrors.Errorf("error in appendIndexer: %w", err)
+				}
+				gen.FieldInfos = append(gen.FieldInfos, fieldInfo)
+				continue
+			}
+			if err := keyFieldHandler(gen, tags, name, typeName, pos); err != nil {
+				return xerrors.Errorf("error in keyFieldHandler: %w", err)
+			}
 		}
+	}
 
-		_, err = tags.Get("datastore_key")
-
+	{
+		fp, err := os.Create(gen.GeneratedFileName + ".go")
 		if err != nil {
-			continue
+			panic(err)
 		}
+		defer fp.Close()
 
-		dsTag, err := tags.Get("datastore")
-
-		// datastore タグが存在しないか-になっていない
-		if err != nil || strings.Split(dsTag.Value(), ",")[0] != "-" {
-			return fmt.Errorf("%s: key field for datastore should have datastore:\"-\" tag", pos)
-		}
-
-		if len(field.Names) != 1 {
-			return fmt.Errorf("%s: datastore_key tag can be set to only one field", pos)
-		}
-
-		gen.KeyFieldName = field.Names[0].Name
-		gen.KeyFieldType = getTypeName(field.Type)
-
-		if gen.KeyFieldType != "int64" &&
-			gen.KeyFieldType != "string" &&
-			!strings.HasSuffix(gen.KeyFieldType, ".Key") {
-			return fmt.Errorf("%s: supported key types are int64, string, *datastore.Key", pos)
-		}
-
-		gen.KeyValueName = strcase.ToLowerCamel(field.Names[0].Name)
+		gen.generate(fp)
 	}
 
-	fp, err := os.Create(gen.GeneratedFileName + ".go")
-
-	if err != nil {
-		panic(err)
+	if gen.EnableIndexes {
+		path := gen.FileName + "_label.go"
+		fp, err := os.Create(path)
+		if err != nil {
+			panic(err)
+		}
+		defer fp.Close()
+		gen.generateLabel(fp)
 	}
 
-	gen.generate(
-		fp,
-	)
-
-	fp.Close()
+	{
+		fp, err := os.Create("constant.go")
+		if err != nil {
+			panic(err)
+		}
+		defer fp.Close()
+		gen.generateConstant(fp)
+	}
 
 	return nil
+}
+
+func keyFieldHandler(gen *generator, tags *structtag.Tags, name, typeName, pos string) error {
+	dsTag, err := tags.Get("datastore")
+
+	// datastore タグが存在しないか-になっていない
+	if err != nil || strings.Split(dsTag.Value(), ",")[0] != "-" {
+		return xerrors.Errorf("%s: key field for datastore should have datastore:\"-\" tag", pos)
+	}
+
+	gen.KeyFieldName = name
+	gen.KeyFieldType = typeName
+
+	if gen.KeyFieldType != typeInt64 &&
+		gen.KeyFieldType != typeString &&
+		!strings.HasSuffix(gen.KeyFieldType, ".Key") {
+		return xerrors.Errorf("%s: supported key types are int64, string, *datastore.Key", pos)
+	}
+
+	gen.KeyValueName = strcase.ToLowerCamel(name)
+	return nil
+}
+
+func appendIndexer(pos string, tags *structtag.Tags, fieldInfo *FieldInfo, dupMap map[string]int) (*FieldInfo, error) {
+	if tag, err := dataStoreTagCheck(pos, tags); err != nil {
+		return nil, xerrors.Errorf("error in tagCheck method: %w", err)
+	} else if tag != "" {
+		fieldInfo.DsTag = tag
+	}
+	if idr, err := tags.Get("indexer"); err != nil || fieldInfo.FieldType != typeString {
+		appendIndexesInfo(fieldInfo, dupMap)
+	} else {
+		filters := strings.Split(idr.Value(), ",")
+		dupIdr := make(map[string]struct{})
+		for _, fil := range filters {
+			idx := &IndexesInfo{
+				ConstName: fieldLabel + fieldInfo.Field,
+				Label:     uppercaseExtraction(fieldInfo.Field, dupMap),
+				Method:    "Add",
+			}
+			var dupFlag string
+			switch fil {
+			case "p", "prefix": // 前方一致 (AddPrefix)
+				idx.Method += prefix
+				idx.ConstName += prefix
+				idx.Comment = fmt.Sprintf("%s %s前方一致", idx.ConstName, fieldInfo.Field)
+				dupFlag = "p"
+			case "s", "suffix": /* TODO 後方一致
+				idx.Method += Suffix
+				idx.ConstName += Suffix
+				idx.Comment = fmt.Sprintf("%s %s後方一致", idx.ConstName, name)
+				dup = "s"*/
+			case "e", "equal": // 完全一致 (Add) Default
+				idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, fieldInfo.Field)
+				dupIdr["equal"] = struct{}{}
+				dupFlag = "e"
+			case "l", "like": // 部分一致
+				idx.Method += biunigrams
+				idx.ConstName += "Like"
+				idx.Comment = fmt.Sprintf("%s %s部分一致", idx.ConstName, fieldInfo.Field)
+				dupFlag = "l"
+			default:
+				continue
+			}
+			if _, ok := dupIdr[dupFlag]; ok {
+				continue
+			}
+			dupIdr[dupFlag] = struct{}{}
+			fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
+		}
+	}
+	return fieldInfo, nil
+}
+
+func uppercaseExtraction(name string, dupMap map[string]int) (lower string) {
+	for _, x := range name {
+		if 65 <= x && x <= 90 {
+			lower += string(x + 32)
+		}
+	}
+	if _, ok := dupMap[lower]; !ok {
+		dupMap[lower] = 1
+	} else {
+		dupMap[lower]++
+		lower = fmt.Sprintf("%s%d", lower, dupMap[lower])
+	}
+	return
+}
+
+func appendIndexesInfo(fieldInfo *FieldInfo, dupMap map[string]int) {
+	idx := &IndexesInfo{
+		ConstName: fieldLabel + fieldInfo.Field,
+		Label:     uppercaseExtraction(fieldInfo.Field, dupMap),
+		Method:    "Add",
+	}
+	idx.Comment = fmt.Sprintf("%s %s", idx.ConstName, fieldInfo.Field)
+	if fieldInfo.FieldType != typeString {
+		idx.Method += "Something"
+	}
+	fieldInfo.Indexes = append(fieldInfo.Indexes, idx)
+}
+
+func dataStoreTagCheck(pos string, tags *structtag.Tags) (string, error) {
+	if dsTag, err := tags.Get("datastore"); err == nil {
+		tag := strings.Split(dsTag.Value(), ",")[0]
+		if !valueCheck.MatchString(tag) {
+			return "", xerrors.Errorf("%s: key field for datastore should have other than blanks and symbols tag", pos)
+		}
+		if strings.Contains("0123456789", string(tag[0])) {
+			return "", xerrors.Errorf("%s: key field for datastore should have prefix other than numbers required", pos)
+		}
+		return tag, nil
+	}
+	return "", nil
 }

@@ -5,6 +5,7 @@ import (
 )
 
 //go:generate repo_generator Task
+//go:generate gofmt -w ./
 
 type Task struct {
 	Desc    string    `datastore:"description"`

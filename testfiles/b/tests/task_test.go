@@ -40,7 +40,7 @@ func compareTask(t *testing.T, expected, actual *task.Task) {
 		t.Fatalf("unexpected id: %s(expected: %s)", actual.ID, expected.ID)
 	}
 
-	if actual.Created != expected.Created {
+	if !actual.Created.Equal(expected.Created) {
 		t.Fatalf("unexpected time: %s(expected: %s)", actual.Created, expected.Created)
 	}
 
