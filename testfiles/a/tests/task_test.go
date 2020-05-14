@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	task "github.com/go-generalize/repo_generator/testfiles/a"
+	task "github.com/go-generalize/ds-repo/testfiles/a"
 )
 
 func initDatastoreClient(t *testing.T) *datastore.Client {

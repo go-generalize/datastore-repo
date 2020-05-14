@@ -3,7 +3,7 @@ package dstags_test
 import (
 	"testing"
 
-	dstags "github.com/go-generalize/repo_generator/tools/datastore_tag_linter"
+	dstags "github.com/go-generalize/ds-repo/tools/datastore_tag_linter"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 

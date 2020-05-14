@@ -1,10 +1,10 @@
-## repo_generator
+## ds-repo
 
 Cloud Datastoreで利用されるコードを自動生成する
 
 ### Installation
 ```console
-$ go get github.com/go-generalize/repo_generator
+$ go get github.com/go-generalize/ds-repo
 ```
 
 ### Usage
@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-//go:generate repo_generator Task
+//go:generate ds-repo Task
 
 type Task struct {
 	Desc    string         `datastore:"description"`

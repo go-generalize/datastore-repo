@@ -1,4 +1,4 @@
-module github.com/go-generalize/repo_generator
+module github.com/go-generalize/ds-repo
 
 go 1.12
 

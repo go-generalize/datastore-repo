@@ -6,7 +6,7 @@ import (
 	"cloud.google.com/go/datastore"
 )
 
-//go:generate repo_generator Task
+//go:generate ds-repo Task
 //go:generate gofmt -w ./
 
 type Task struct {

@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-//go:generate repo_generator Task
+//go:generate ds-repo Task
 //go:generate gofmt -w ./
 
 // Task 拡張インデックスなし
