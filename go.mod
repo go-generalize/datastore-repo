@@ -15,6 +15,7 @@ require (
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 	github.com/knightso/xian v0.1.0
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rakyll/statik v0.1.7
 	golang.org/x/net v0.0.0-20200513185701-a91f0712d120 // indirect
 	golang.org/x/sys v0.0.0-20200513112337-417ce2331b5c // indirect
 	golang.org/x/tools v0.0.0-20200513201620-d5fe73897c97
