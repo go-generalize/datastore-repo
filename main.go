@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/fatih/structtag"
 	"github.com/go-utils/cont"
@@ -311,7 +312,7 @@ func dataStoreTagCheck(pos string, tags *structtag.Tags) (string, error) {
 		if !valueCheck.MatchString(tag) {
 			return "", xerrors.Errorf("%s: key field for datastore should have other than blanks and symbols tag", pos)
 		}
-		if strings.Contains("0123456789", string(tag[0])) {
+		if unicode.IsDigit(rune(tag[0])) {
 			return "", xerrors.Errorf("%s: key field for datastore should have prefix other than numbers required", pos)
 		}
 		return tag, nil
