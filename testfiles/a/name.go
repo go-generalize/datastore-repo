@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-//go:generate ds-repo Name
+//go:generate datastore-repo Name
 //go:generate gofmt -w ./
 
 // Name 拡張インデックスあり

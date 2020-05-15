@@ -1,10 +1,10 @@
-# ds-repo
+# datastore-repo
 
 Cloud Datastoreで利用されるコードを自動生成する
 
 ### Installation
 ```console
-$ go get github.com/go-generalize/ds-repo
+$ go get github.com/go-generalize/datastore-repo
 ```
 
 ### Usage
@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-//go:generate ds-repo Task
+//go:generate datastore-repo Task
 
 type Task struct {
 	ID      int64          `datastore:"-" datastore_key:""` // supported type: string, int64, *datastore.Key
@@ -38,9 +38,9 @@ type Task struct {
 ## DataStore Tag Linter
 ### Installation
 ```console
-$ go get github.com/go-generalize/ds-repo/tools/datastore_tag_linter/cmd/dstags
+$ go get github.com/go-generalize/datastore-repo/tools/datastore_tag_linter/cmd/dstags
 ```
-[README](https://github.com/go-generalize/ds-repo/blob/master/tools/datastore_tag_linter/README.md)
+[README](https://github.com/go-generalize/datastore-repo/blob/master/tools/datastore_tag_linter/README.md)
 
 ## License
 - Under the MIT License

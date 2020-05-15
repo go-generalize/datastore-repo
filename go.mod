@@ -1,4 +1,4 @@
-module github.com/go-generalize/ds-repo
+module github.com/go-generalize/datastore-repo
 
 go 1.12
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/template"
 
-	_ "github.com/go-generalize/ds-repo/statik"
+	_ "github.com/go-generalize/datastore-repo/statik"
 	"github.com/iancoleman/strcase"
 	"github.com/rakyll/statik/fs"
 )

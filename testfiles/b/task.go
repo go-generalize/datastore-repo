@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-//go:generate ds-repo Task
+//go:generate datastore-repo Task
 //go:generate gofmt -w ./
 
 type Task struct {
