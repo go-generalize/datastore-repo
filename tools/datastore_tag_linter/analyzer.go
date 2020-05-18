@@ -18,7 +18,7 @@ var Analyzer = &analysis.Analyzer{
 }
 
 // Doc - analyzerの説明
-const Doc = `Datastore tags linter for repo_generator`
+const Doc = `Datastore tags linter for datastore-repo`
 
 func getDatastoreAlias(inspect *inspector.Inspector) string {
 	nodeFilter := []ast.Node{

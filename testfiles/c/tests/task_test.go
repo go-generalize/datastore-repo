@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	task "github.com/go-generalize/repo_generator/testfiles/c"
+	task "github.com/go-generalize/datastore-repo/testfiles/c"
 	"github.com/google/uuid"
 )
 

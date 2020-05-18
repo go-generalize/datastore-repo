@@ -1,4 +1,4 @@
-module github.com/go-generalize/repo_generator
+module github.com/go-generalize/datastore-repo
 
 go 1.12
 
@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/datastore v1.1.0
 	github.com/fatih/structtag v1.2.0
 	github.com/go-utils/cont v0.1.1
-	github.com/go-utils/dedupe v0.1.3
+	github.com/go-utils/dedupe v0.2.1
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.1 // indirect
 	github.com/google/uuid v1.1.1
